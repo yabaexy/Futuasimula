@@ -1,0 +1,6 @@
+{
+  "name": "Futua Simula 구독관리 서비스",
+  "description": "BSC 기반 USDT 결제로 구독을 확인 및 관리하고 Futua Simula 선물 시뮬레이터를 직접 체험할 수 있는 구독 관리 대시보드",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
