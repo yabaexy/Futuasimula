@@ -25,6 +25,44 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
   const isVip = subscriptionStatus === 'ACTIVE';
   const [demoCredits, setDemoCredits] = useState(1000);
 
+  // Casino games eligibility check (Non-Korean + Registered phone number)
+  const checkCasinoEligibility = (): { eligible: boolean; reason: string } => {
+    try {
+      const saved = localStorage.getItem('FUTUA_SIMULA_SUBSCRIBERS');
+      const subs = saved ? JSON.parse(saved) : [];
+      const match = subs.find((s: any) => 
+        (wallet.isConnected && wallet.address && s.walletAddress && s.walletAddress.toLowerCase() === wallet.address.toLowerCase()) ||
+        (s.email.toLowerCase() === 'savrina25x@gmail.com')
+      );
+
+      if (!match) {
+        return {
+          eligible: false,
+          reason: 'No registered subscriber profile found. Please register your profile first in subscription checkout.'
+        };
+      }
+
+      if (!match.phoneNumber || !match.phoneNumber.trim()) {
+        return {
+          eligible: false,
+          reason: 'A registered phone number is required in your profile to play Casino mini-games.'
+        };
+      }
+
+      const isKorean = match.phoneNumber.startsWith('+82') || match.phoneNumber.includes('+82');
+      if (isKorean) {
+        return {
+          eligible: false,
+          reason: 'Access Restricted: Casino mini-games are not supported for South Korean (+82) residents.'
+        };
+      }
+
+      return { eligible: true, reason: '' };
+    } catch {
+      return { eligible: false, reason: 'Error checking database. Please try again.' };
+    }
+  };
+
   const getAvailableBalance = () => {
     return isVip && wallet.isConnected ? wallet.usdtBalance : demoCredits;
   };
@@ -32,7 +70,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
   const deductFunds = (amount: number): boolean => {
     const bal = getAvailableBalance();
     if (bal < amount) {
-      triggerToast('error', isVip ? '지갑의 모의 USDT 잔액이 부족합니다. 상단에서 Faucet 충전을 수행해 주세요!' : '데모 크레딧이 부족합니다. 하단에서 크레딧 충전을 눌러주세요.');
+      triggerToast('error', isVip ? 'Insufficient simulated USDT balance. Please perform a Faucet refill on top!' : 'Insufficient demo credits. Please click Demo Refill below.');
       return false;
     }
 
@@ -61,7 +99,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
       for (let i = 0; i < 58; i++) {
         gameHash += txChars.charAt(Math.floor(Math.random() * txChars.length));
       }
-      onAddTransaction(gameHash, `${gameName} 게임 당첨 정산 완료`, amount, 'SUCCESS');
+      onAddTransaction(gameHash, `${gameName} game payout settlement completed`, amount, 'SUCCESS');
     } else {
       setDemoCredits(prev => prev + amount);
     }
@@ -124,8 +162,8 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
         const reward = Math.floor(tetrisScore / 10);
         if (reward > 0) {
           addFunds(reward, 'Futua Tetris');
-          setTetrisRewardMsg(`🎉 게임종료! 점수 정산 완료: +${reward} ${isVip ? 'USDT' : '데모 크레딧'}`);
-          triggerToast('success', `테트리스 정산 완료! ${reward} 획득`);
+          setTetrisRewardMsg(`🎉 Game Over! Scores settled: +${reward} ${isVip ? 'USDT' : 'Demo Credits'}`);
+          triggerToast('success', `Tetris settlement completed! Earned +${reward}`);
         }
       }
       return;
@@ -244,7 +282,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
     // Initial deduction for VIP subscription matching simulation
     const gameFee = isVip ? 1 : 0; // VIP limits free-bets or fees, standard slot wagers
     if (gameFee > 0 && !wallet.isConnected) {
-      triggerToast('error', '상단에서 지갑 연결을 먼저 완료해 주세요!');
+      triggerToast('error', 'Please connect your Metamask wallet first at the top of the portal!');
       return;
     }
 
@@ -368,7 +406,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
           if (next.cpu >= 5) {
             setPongWinner('CPU');
             setPongPlaying(false);
-            triggerToast('error', '퐁 게임에서 CPU에게 패배하였습니다!');
+            triggerToast('error', 'Defeat! CPU won the Pong match.');
           } else {
             // Reset ball
             ballX = 300;
@@ -387,7 +425,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
             setPongPlaying(false);
             const prize = isVip ? 20 : 100; // USDT or credits
             addFunds(prize, 'Cyber Pong');
-            triggerToast('success', `🎉 승리! 퐁 게임에서 승리하여 +${prize} ${isVip ? 'USDT' : '데모 크레딧'}을 정산받았습니다!`);
+            triggerToast('success', `🎉 Victory! You won the Pong match and received +${prize} ${isVip ? 'USDT' : 'Demo Credits'} in settlement!`);
           } else {
             ballX = 300;
             ballY = 200;
@@ -507,7 +545,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
     // Triple elements matches
     if (r1 === r2 && r2 === r3) {
       let multiplier = 5;
-      let name = '일반 매칭';
+      let name = 'Standard Match';
 
       if (r1 === '⭐') { multiplier = 50; name = 'VIP SUPER STARS'; }
       else if (r1 === '💎') { multiplier = 25; name = 'GRAND GIGA CHAD BTC'; }
@@ -516,16 +554,16 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
       
       const prize = slotBet * multiplier;
       addFunds(prize, 'Neon Slots');
-      setSlotPayoutMsg(`🔥 TRIPLE JACKPOT! [${name}] - ${multiplier}배 획득! +${prize} ${isVip ? 'USDT' : 'CR'}`);
-      triggerToast('success', `슬롯머신 트리플 잭팟! +${prize}`);
+      setSlotPayoutMsg(`🔥 TRIPLE JACKPOT! [${name}] - ${multiplier}x payout! +${prize} ${isVip ? 'USDT' : 'CR'}`);
+      triggerToast('success', `Slots Triple Jackpot! +${prize}`);
     } 
     // Double matches
     else if (r1 === r2 || r2 === r3 || r1 === r3) {
       const prize = slotBet * 2;
       addFunds(prize, 'Neon Slots');
-      setSlotPayoutMsg(`⭐ DOUBLE MATCH! 더블 상금 2배 달성: +${prize} ${isVip ? 'USDT' : 'CR'}`);
+      setSlotPayoutMsg(`⭐ DOUBLE MATCH! Multiplier 2x won: +${prize} ${isVip ? 'USDT' : 'CR'}`);
     } else {
-      setSlotPayoutMsg('😢 아쉽게도 꽝입니다. 다시 한 번 행운을 시험해 보세요.');
+      setSlotPayoutMsg('😢 No matches this time. Spin again to test your luck!');
     }
   };
 
@@ -604,11 +642,11 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
       const winnings = Math.floor(blackjackBet * 2.5);
       addFunds(winnings, 'Web3 Blackjack');
       setBlackjackState('GAME_OVER');
-      setBlackjackStatusMsg(`🎉 BLACKJACK! 네추럴 블랙잭 달성: +${winnings} ${isVip ? 'USDT' : 'CR'}`);
-      triggerToast('success', '블랙잭 당첨!');
+      setBlackjackStatusMsg(`🎉 NATURAL BLACKJACK! Achieved 21 score: +${winnings} ${isVip ? 'USDT' : 'CR'}`);
+      triggerToast('success', 'Natural Blackjack Hit!');
     } else {
       setBlackjackState('PLAYING');
-      setBlackjackStatusMsg('Hit(추가 가동) 혹은 Stand(스톱)을 판단해 주십시오.');
+      setBlackjackStatusMsg('Please choose whether to Hit (+ card) or Stand (Stop).');
     }
   };
 
@@ -624,8 +662,8 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
     const val = calculateHandValue(nextHand);
     if (val > 21) {
       setBlackjackState('GAME_OVER');
-      setBlackjackStatusMsg('💥 버스트(Bust)! 카드 합이 21을 초과하여 배팅 부결 손실이 발생했습니다.');
-      triggerToast('error', '버스트! 패배');
+      setBlackjackStatusMsg('💥 Bust! Total card value exceeds 21. Escrow bet value lost.');
+      triggerToast('error', 'Bust! Dealer wins.');
     }
   };
 
@@ -658,19 +696,19 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
     if (dealerVal > 21) {
       const winnings = blackjackBet * 2;
       addFunds(winnings, 'Web3 Blackjack');
-      setBlackjackStatusMsg(`🎉 승리! 딜러 버스트: +${winnings} ${isVip ? 'USDT' : 'CR'}`);
-      triggerToast('success', '딜러 버스트로 승리!');
+      setBlackjackStatusMsg(`🎉 Victory! Dealer busted: +${winnings} ${isVip ? 'USDT' : 'CR'}`);
+      triggerToast('success', 'Victory! Dealer busted.');
     } else if (playerVal > dealerVal) {
       const winnings = blackjackBet * 2;
       addFunds(winnings, 'Web3 Blackjack');
-      setBlackjackStatusMsg(`🎉 승리! 카드 총합 우세: +${winnings} ${isVip ? 'USDT' : 'CR'}`);
-      triggerToast('success', '블랙잭 승리!');
+      setBlackjackStatusMsg(`🎉 Victory! Your hand value is higher: +${winnings} ${isVip ? 'USDT' : 'CR'}`);
+      triggerToast('success', 'Victory! You won');
     } else if (playerVal < dealerVal) {
-      setBlackjackStatusMsg(`😢 패배! 딜러 카드 총합 더 높음 (${dealerVal} vs ${playerVal})`);
+      setBlackjackStatusMsg(`😢 Defeat! Dealer has higher value (${dealerVal} vs ${playerVal})`);
     } else {
       // Draw Push (refund)
       addFunds(blackjackBet, 'Web3 Blackjack');
-      setBlackjackStatusMsg('🤝 무승부(Push). 배팅 에스크로 원금이 반환 처리되었습니다.');
+      setBlackjackStatusMsg('🤝 Push! The round is a tie. Your escrow bet has been refunded.');
     }
 
     setBlackjackState('GAME_OVER');
@@ -753,10 +791,10 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
     if (isWin) {
       const prize = rouletteBetAmount * multiplier;
       addFunds(prize, 'VIP Chess Roulette');
-      setRouletteStatusMsg(`🎉 당첨! [${color.toUpperCase()} ${num}] 당첨 요건에 도달했습니다: +${prize} ${isVip ? 'USDT' : 'CR'}`);
-      triggerToast('success', `룰렛 당첨! +${prize}`);
+      setRouletteStatusMsg(`🎉 Win! [${color.toUpperCase()} ${num}] matched your bet selection: +${prize} ${isVip ? 'USDT' : 'CR'}`);
+      triggerToast('success', `Roulette Win! +${prize}`);
     } else {
-      setRouletteStatusMsg(`😢 낙첨! 결과: [${color.toUpperCase()} ${num}]. 행운은 돌고 돕니다.`);
+      setRouletteStatusMsg(`😢 Lose! Result: [${color.toUpperCase()} ${num}]. Better luck on the next spin!`);
     }
   };
 
@@ -772,9 +810,9 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
             </span>
             <span className="text-xs font-semibold uppercase text-emerald-400 font-mono tracking-widest">Web3 Multi Arena Zone</span>
           </div>
-          <h3 className="text-xl font-bold text-white mt-1">Futua Simula 프리미엄 미니게임 센터</h3>
+          <h3 className="text-xl font-bold text-white mt-1">Futua Simula Premium Mini-Game Hub</h3>
           <p className="text-slate-400 text-xs mt-1">
-            테트리스, 퐁 및 카지노 도박(슬롯머신, 블랙잭, 베팅 룰렛)을 통합한 하이엔드 Web3 엔터테인먼트 존입니다.
+            An advanced Web3 entertainment zone featuring Tetris, Pong, Slots, Blackjack, and Roulette.
           </p>
         </div>
 
@@ -783,7 +821,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
           <div className="bg-slate-900 px-4 py-2 rounded-xl border border-slate-805 flex items-center gap-2">
             <Coins size={14} className="text-yellow-500 shrink-0" />
             <div>
-              <span className="text-slate-500 text-4xs uppercase font-bold block leading-none">사용 가능 칩고</span>
+              <span className="text-slate-500 text-4xs uppercase font-bold block leading-none">Available Balance</span>
               <span className="text-white font-mono text-sm font-extrabold leading-none mt-1 inline-block">
                 {isVip ? `${wallet.usdtBalance.toFixed(2)} USDT` : `${demoCredits} Credits`}
               </span>
@@ -795,12 +833,12 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
               id="btn-faucet-demo-credits"
               onClick={() => {
                 setDemoCredits(prev => prev + 500);
-                triggerToast('success', '데모용 카지노 칩 500 Credits가 무상 충전되었습니다!');
+                triggerToast('success', 'Demo Casino Faucet: +500 free credits added!');
               }}
               className="px-2.5 py-2 bg-slate-800 border border-slate-750 text-slate-300 hover:text-white rounded-lg text-3xs font-extrabold cursor-pointer transition flex items-center gap-1"
             >
               <RefreshCw size={11} />
-              데모 충전
+              Refill Chips
             </button>
           )}
         </div>
@@ -816,8 +854,8 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
           {isVip ? <ShieldCheck size={14} /> : <ShieldAlert size={14} />}
           <p className="text-3xs sm:text-2xs">
             {isVip 
-              ? '✓ VIP 특권 가동: 본 미니게임의 배팅금/수익금 정산은 실제 연동 메타마스크 지갑의 오프체인 USDT 잔고 및 Netlify 원장 히스토리와 상호 융합 적용됩니다.'
-              : '⚠️ 라이선스 만료 무료모드: 데모 크레딧으로만 배팅이 가능합니다. 정상적인 USDT 배팅 및 온체인 영수증을 연동하려면 상단 탭에서 VIP 구독을 개시해 주십시오.'}
+              ? '✓ VIP Mode Active: Your betting and payout settlements are linked directly to your Metamask USDT balance and recorded under the Netlify Ledger history.'
+              : '⚠️ License Expired (Demo Mode): You can only place bets using demo credits. Launch VIP Subscription on the Subscriptions tab to unlock actual USDT stakes.'}
           </p>
         </div>
       </div>
@@ -835,7 +873,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
               activeGame === 'TETRIS' ? 'bg-slate-800 text-emerald-400 border border-slate-750' : 'text-slate-400 hover:bg-slate-900/60'
             }`}
           >
-            <span>🧩 펜타그램 테트리스</span>
+            <span>🧩 Cyber Tetris</span>
             <ChevronRight size={12} className={activeGame === 'TETRIS' ? 'text-emerald-400' : 'text-slate-700'} />
           </button>
 
@@ -846,7 +884,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
               activeGame === 'PONG' ? 'bg-slate-800 text-emerald-400 border border-slate-750' : 'text-slate-400 hover:bg-slate-900/60'
             }`}
           >
-            <span>🏓 사이버 핑퐁 (Classic)</span>
+            <span>🏓 Arcade Pong</span>
             <ChevronRight size={12} className={activeGame === 'PONG' ? 'text-emerald-400' : 'text-slate-700'} />
           </button>
 
@@ -860,7 +898,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
               activeGame === 'SLOTS' ? 'bg-slate-800 text-emerald-400 border border-slate-750' : 'text-slate-400 hover:bg-slate-900/60'
             }`}
           >
-            <span>🎰 네온 크립토 슬롯머신</span>
+            <span>🎰 Neon Crypto Slots</span>
             <ChevronRight size={12} className={activeGame === 'SLOTS' ? 'text-emerald-400' : 'text-slate-700'} />
           </button>
 
@@ -871,7 +909,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
               activeGame === 'BLACKJACK' ? 'bg-slate-800 text-emerald-400 border border-slate-750' : 'text-slate-400 hover:bg-slate-900/60'
             }`}
           >
-            <span>🃏 Web3 정통 블랙잭</span>
+            <span>🃏 Web3 Blackjack</span>
             <ChevronRight size={12} className={activeGame === 'BLACKJACK' ? 'text-emerald-400' : 'text-slate-700'} />
           </button>
 
@@ -882,13 +920,30 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
               activeGame === 'ROULETTE' ? 'bg-slate-800 text-emerald-400 border border-slate-750' : 'text-slate-400 hover:bg-slate-900/60'
             }`}
           >
-            <span>🎡 BSC 룰렛 디바이스</span>
+            <span>🎡 BSC Roulette Wheel</span>
             <ChevronRight size={12} className={activeGame === 'ROULETTE' ? 'text-emerald-400' : 'text-slate-700'} />
           </button>
         </div>
 
         {/* Main interactive screen workspace - Right column */}
         <div className="flex-grow p-6 bg-slate-900/30">
+          
+          {/* Casino games eligibility requirement guard */}
+          {['SLOTS', 'BLACKJACK', 'ROULETTE'].includes(activeGame) && !checkCasinoEligibility().eligible ? (
+            <div className="bg-slate-950 p-8 rounded-2xl border border-slate-850 flex flex-col items-center text-center max-w-lg mx-auto my-12 space-y-4 shadow-xl">
+              <div className="p-3 bg-red-500/10 rounded-full text-red-500 border border-red-500/20">
+                <ShieldAlert size={36} />
+              </div>
+              <h4 className="text-white text-base font-black uppercase tracking-wider">Access Restricted</h4>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                {checkCasinoEligibility().reason}
+              </p>
+              <p className="text-slate-500 text-2xs leading-relaxed pt-2 border-t border-slate-900 w-full font-mono">
+                Access Compliance: Casino mini-games & WYDA payments are strictly restricted to non-Korean users with registered phone numbers.
+              </p>
+            </div>
+          ) : (
+            <>
           
           {/* ======================================= */}
           {/* S1: TETRIS WORKSPACE */}
@@ -932,7 +987,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
               {/* Tetris stats and side commands */}
               <div className="md:col-span-5 space-y-4">
                 <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-3.5">
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">가이드 & 조작계터미널</h4>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Guide & Controls</h4>
                   
                   <div className="grid grid-cols-2 gap-2 text-2xs">
                     <div className="bg-slate-900 p-2 rounded border border-slate-805">
@@ -954,7 +1009,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                         className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 shadow-lg shadow-emerald-500/10"
                       >
                         <Play size={13} fill="currentColor" />
-                        테트리스 시작하기
+                        Start Tetris
                       </button>
                     ) : (
                       <button
@@ -963,19 +1018,19 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                         className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg transition cursor-pointer flex items-center justify-center gap-1"
                       >
                         <RotateCcw size={12} />
-                        다시 시작하기
+                        Restart
                       </button>
                     )}
                   </div>
 
                   {/* Instruction keyboard mapping */}
                   <div className="bg-slate-900 p-3 rounded-lg border border-slate-805 text-3xs text-slate-400 space-y-1 font-mono">
-                    <p className="text-white font-bold mb-1">🎮 조작 가이드</p>
-                    <p>← / → : 좌우 이동</p>
-                    <p>↑ 화살표: 블록 회전</p>
-                    <p>↓ 화살표: 소프트 드롭 (가속)</p>
-                    <p>Spacebar: 하드 드롭 (즉시 강하)</p>
-                    <p className="text-slate-500 border-t border-slate-800 pt-1.5 mt-1 sm:text-4xs">※ 라인 클리어 시 점수에 따라 실제 {isVip ? 'USDT' : '데모 크레딧'}로 환원 정산됩니다. (10 PTS = 1 USDT)</p>
+                    <p className="text-white font-bold mb-1">🎮 Control Guide</p>
+                    <p>← / → : Move Left / Right</p>
+                    <p>▲ Arrow Up : Rotate Piece</p>
+                    <p>▼ Arrow Down : Soft Drop (Speed up)</p>
+                    <p>Spacebar : Hard Drop (Drop instantly)</p>
+                    <p className="text-slate-500 border-t border-slate-800 pt-1.5 mt-1 sm:text-4xs">※ When lines are cleared, score gets converted to actual {isVip ? 'USDT' : 'Demo Credits'} (10 PTS = 1 USDT).</p>
                   </div>
                 </div>
 
@@ -987,7 +1042,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                 )}
                 {tetrisGameOver && !tetrisRewardMsg && (
                   <div className="bg-red-950/40 border border-red-900/30 p-3 rounded-xl text-red-300 text-2xs font-sans">
-                    💥 GAME OVER! 블록이 가득 찼습니다. 다시 전열을 정비해 보세요!
+                    💥 GAME OVER! The grid has filled up. Give it another shot!
                   </div>
                 )}
 
@@ -1000,7 +1055,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                       <button id="ctrl-tetris-down" onClick={moveDown} className="w-10 h-10 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg cursor-pointer text-xs">▼</button>
                       <button id="ctrl-tetris-right" onClick={moveRight} className="w-10 h-10 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg cursor-pointer text-xs">▶</button>
                     </div>
-                    <button id="ctrl-tetris-space" onClick={dropHard} className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-3xs mt-1 cursor-pointer">스페이스 (하드드롭)</button>
+                    <button id="ctrl-tetris-space" onClick={dropHard} className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-3xs mt-1 cursor-pointer">SPACEBAR (HARD DROP)</button>
                   </div>
                 )}
               </div>
@@ -1018,7 +1073,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                   PLAYER: <span className="font-mono text-white text-sm ml-1">{pongScore.player}</span>
                 </div>
                 
-                <span className="text-3xs text-slate-500 font-mono">가상 퐁 아레나: 매치 5승제 선취시 배당 즉각 수령</span>
+                <span className="text-3xs text-slate-500 font-mono">Virtual Pong Arena: First to 5 points wins.</span>
                 
                 <div className="text-blue-400 font-bold flex items-center gap-1 text-xs">
                   CPU: <span className="font-mono text-white text-sm ml-1">{pongScore.cpu}</span>
@@ -1038,10 +1093,10 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                 {/* Overlapped Play Trigger UI screen */}
                 {!pongPlaying && (
                   <div className="absolute inset-0 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center">
-                    <h5 className="text-white text-base font-extrabold">사이버 핑퐁 토너먼트 가동</h5>
-                    <p className="text-slate-400 text-2xs mt-1.5 max-w-sm mb-4 leading-relaxed">
-                      컴퓨터 CPU와 모의 거래속도 반사 테스트를 수행합니다. <br />
-                      마우스 포인터를 게임 화면 위로 서빙하여 좌측 패들을 조절해 주십시오. 5점 달성 시 {isVip ? '20 USDT' : '100 크레딧'} 보너스가 즉시 주어집니다.
+                    <h5 className="text-white text-base font-extrabold font-sans">Cyber Pong Tournament</h5>
+                    <p className="text-slate-400 text-2xs mt-1.5 max-w-sm mb-4 leading-relaxed font-sans">
+                      Test your reaction speed against our advanced computer AI. <br />
+                      Hover your mouse over the screen and slide to control your paddle. Winning 5 points awards +${isVip ? '20 USDT' : '100 Credits'} instantly.
                     </p>
                     
                     <button
@@ -1049,7 +1104,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                       onClick={startPong}
                       className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-teal-500/25 transition cursor-pointer"
                     >
-                      핑퐁 탁구 경기 개시
+                      Start Pong Match
                     </button>
                   </div>
                 )}
@@ -1083,7 +1138,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                 {/* Betting selection slider & button */}
                 <div className="w-full max-w-md bg-slate-900/60 p-4 rounded-xl border border-slate-805 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400 text-xs font-bold block">배팅액 선택</span>
+                    <span className="text-slate-400 text-xs font-bold block">Select Bet Amount</span>
                     <div className="flex gap-1.5">
                       {([5, 10, 20, 50] as const).map((amount) => (
                         <button
@@ -1094,7 +1149,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                           className={`px-2.5 py-1 text-3xs font-black rounded border cursor-pointer ${
                             slotBet === amount
                               ? 'bg-yellow-500 text-slate-950 border-yellow-400'
-                              : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
+                              : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-705'
                           }`}
                         >
                           {amount}
@@ -1104,14 +1159,14 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="text-slate-500 text-2xs">현재 배팅: <span className="font-mono text-white font-bold">{slotBet} USDT/CR</span></span>
+                    <span className="text-slate-500 text-2xs">Current Stake: <span className="font-mono text-white font-bold">{slotBet} {isVip ? 'USDT' : 'Credits'}</span></span>
                     <button
                       id="btn-spin-slots"
                       onClick={spinSlots}
                       disabled={slotSpinning}
-                      className="px-5 py-2.5 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-950 font-black rounded-lg transition-all transform hover:-translate-y-0.5 shadow-lg shadow-yellow-500/10 cursor-pointer disabled:opacity-50"
+                      className="px-5 py-2.5 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-950 font-black rounded-lg transition-all transform hover:-translate-y-0.5 shadow-lg shadow-yellow-500/10 cursor-pointer disabled:opacity-50 text-xs"
                     >
-                      {slotSpinning ? '슬롯 회전 중...' : '🎰 레버 당기기 (Spin)'}
+                      {slotSpinning ? 'Spinning...' : '🎰 Spin Reels'}
                     </button>
                   </div>
                 </div>
@@ -1120,27 +1175,27 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
               {/* Slot payoff alerts and symbols instruction */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2.5">
-                  <h4 className="text-xs font-extrabold text-white uppercase tracking-wider font-mono">🎰 당첨 배당 판넬</h4>
+                  <h4 className="text-xs font-extrabold text-white uppercase tracking-wider font-mono">🎰 Slots Payout Table</h4>
                   <div className="bg-slate-955 bg-slate-950/70 p-4 rounded-xl border border-slate-850 text-3xs text-slate-400 space-y-2 font-mono">
                     <div className="flex justify-between items-center text-yellow-400 font-bold select-none border-b border-slate-900 pb-1.5">
                       <span>⭐ ⭐ ⭐ Triple Stars</span>
-                      <span>50배 대박</span>
+                      <span>50x Jackpot</span>
                     </div>
                     <div className="flex justify-between items-center text-slate-300 select-none">
                       <span>💎 💎 💎 Triple Diamonds</span>
-                      <span>25배 당첨</span>
+                      <span>25x Win</span>
                     </div>
                     <div className="flex justify-between items-center text-slate-300 select-none">
                       <span>🪙 🪙 🪙 Triple BNB Coins</span>
-                      <span>15배 당첨</span>
+                      <span>15x Win</span>
                     </div>
                     <div className="flex justify-between items-center text-slate-300 select-none">
                       <span>🟢 🟢 🟢 Triple USDT Tokens</span>
-                      <span>10배 당첨</span>
+                      <span>10x Win</span>
                     </div>
                     <div className="flex justify-between items-center text-slate-500 select-none">
-                      <span>동일한 2개 매치 시 (Double Match)</span>
-                      <span>보증 2배 환불</span>
+                      <span>Any Double Match (2 identical items)</span>
+                      <span>2x Payout</span>
                     </div>
                   </div>
                 </div>
@@ -1169,7 +1224,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                     <span className="text-slate-500 font-mono text-3xs font-bold uppercase tracking-wider">Dealer Hand</span>
                     {blackjackState !== 'BETTING' && (
                       <span className="text-3xs text-slate-405 font-mono">
-                        카드 가치: {blackjackState === 'PLAYING' ? `${dealerHand[0]?.num || 0} + ?` : calculateHandValue(dealerHand)}
+                        Hand Value: {blackjackState === 'PLAYING' ? `${dealerHand[0]?.num || 0} + ?` : calculateHandValue(dealerHand)}
                       </span>
                     )}
                   </div>
@@ -1208,7 +1263,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                       );
                     })}
                     {dealerHand.length === 0 && (
-                      <div className="text-slate-600 text-3xs italic pt-4">카드가 배분되지 않았습니다.</div>
+                      <div className="text-slate-600 text-3xs italic pt-4">No cards dealt yet.</div>
                     )}
                   </div>
                 </div>
@@ -1221,7 +1276,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                     <span className="text-emerald-500 font-mono text-3xs font-bold uppercase tracking-wider">Your Hand</span>
                     {playerHand.length > 0 && (
                       <span className="text-3xs text-emerald-400 font-mono font-bold">
-                        최종 가치 합계: {calculateHandValue(playerHand)}
+                        Hand Value: {calculateHandValue(playerHand)}
                       </span>
                     )}
                   </div>
@@ -1248,7 +1303,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                       );
                     })}
                     {playerHand.length === 0 && (
-                      <div className="text-slate-600 text-3xs italic pt-4">배팅 후 경기를 진행하십시오.</div>
+                      <div className="text-slate-600 text-3xs italic pt-4">Please place a bet to start the hand.</div>
                     )}
                   </div>
                 </div>
@@ -1259,17 +1314,17 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                   {blackjackState === 'BETTING' ? (
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full">
                       <div className="flex-grow">
-                        <label className="text-slate-500 text-4xs uppercase tracking-wider block font-bold font-mono">가상 블랙잭 배팅액</label>
+                        <label className="text-slate-500 text-4xs uppercase tracking-wider block font-bold font-mono">Select Blackjack Bet</label>
                         <select
                           id="select-blackjack-bet"
                           value={blackjackBet}
                           onChange={(e) => setBlackjackBet(parseInt(e.target.value))}
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 mt-1"
+                          className="w-full bg-slate-955 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 mt-1"
                         >
-                          <option value={10}>10 USDT / CR</option>
-                          <option value={20}>20 USDT / CR</option>
-                          <option value={50}>50 USDT / CR</option>
-                          <option value={100}>100 USDT / CR (VIP Max)</option>
+                          <option value={10}>10 {isVip ? 'USDT' : 'CR'}</option>
+                          <option value={20}>20 {isVip ? 'USDT' : 'CR'}</option>
+                          <option value={50}>50 {isVip ? 'USDT' : 'CR'}</option>
+                          <option value={100}>100 {isVip ? 'USDT' : 'CR'} (Max)</option>
                         </select>
                       </div>
 
@@ -1278,14 +1333,14 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                         onClick={dealBlackjack}
                         className="py-3 px-6 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-lg shadow-lg cursor-pointer transform hover:-translate-y-0.5 transition uppercase tracking-wide shrink-0 font-sans"
                       >
-                        배팅 후 딜 (Deal Card)
+                        Place Bet & Deal card
                       </button>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between w-full">
                       <div className="text-xs">
                         <span className="text-slate-500 text-3xs font-mono block">Bet Escrow</span>
-                        <span className="text-yellow-400 font-extrabold font-mono">{blackjackBet} USDT / CR</span>
+                        <span className="text-yellow-400 font-extrabold font-mono">{blackjackBet} {isVip ? 'USDT' : 'CR'}</span>
                       </div>
 
                       <div className="flex gap-2">
@@ -1294,16 +1349,16 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                             <button
                               id="btn-hit-blackjack"
                               onClick={hitBlackjack}
-                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold rounded-lg cursor-pointer"
+                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold rounded-lg cursor-pointer font-bold"
                             >
-                              + HIT (카드 받기)
+                              + HIT
                             </button>
                             <button
                               id="btn-stand-blackjack"
                               onClick={standBlackjack}
-                              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg cursor-pointer"
+                              className="px-4 py-2 bg-slate-805 bg-slate-800 hover:bg-slate-700 text-slate-205 text-xs font-bold rounded-lg cursor-pointer font-bold"
                             >
-                              ✓ STAND (유지)
+                              ✓ STAND
                             </button>
                           </>
                         )}
@@ -1314,7 +1369,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                             onClick={resetBlackjack}
                             className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-lg cursor-pointer"
                           >
-                            새로운 라운드 진행
+                            New Round
                           </button>
                         )}
                       </div>
@@ -1371,7 +1426,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                 {/* Bets configuration table board */}
                 <div className="w-full max-w-lg space-y-4">
                   <div className="space-y-1 bg-slate-900 border border-slate-805 p-4 rounded-xl">
-                    <label className="text-slate-500 text-4xs uppercase font-extrabold block">베팅 구역 선택</label>
+                    <label className="text-slate-500 text-4xs uppercase font-extrabold block">Select Betting Spot</label>
                     <div className="grid grid-cols-5 gap-1.5 pt-1">
                       {(['RED', 'BLACK', 'EVEN', 'ODD', 'ZERO'] as const).map((bType) => (
                         <button
@@ -1400,17 +1455,17 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900 border border-slate-805 p-4 rounded-xl">
                     {/* Amount */}
                     <div>
-                      <label className="text-slate-500 text-4xs uppercase font-extrabold block">베팅 머니액 (USDT/CR)</label>
+                      <label className="text-slate-500 text-4xs uppercase font-extrabold block">Stake (USDT/CR)</label>
                       <select
                         id="select-roulette-bet"
                         value={rouletteBetAmount}
                         onChange={(e) => setRouletteBetAmount(parseInt(e.target.value))}
                         className="w-full bg-slate-955 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 mt-1"
                       >
-                        <option value={10}>10 USDT / CR</option>
-                        <option value={25}>25 USDT / CR</option>
-                        <option value={50}>50 USDT / CR</option>
-                        <option value={100}>100 USDT / CR</option>
+                        <option value={10}>10 {isVip ? 'USDT' : 'CR'}</option>
+                        <option value={25}>25 {isVip ? 'USDT' : 'CR'}</option>
+                        <option value={50}>50 {isVip ? 'USDT' : 'CR'}</option>
+                        <option value={100}>100 {isVip ? 'USDT' : 'CR'}</option>
                       </select>
                     </div>
 
@@ -1422,7 +1477,7 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                         disabled={rouletteSpinning}
                         className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black rounded-lg transition-all transform hover:-translate-y-0.5 shadow-lg shadow-teal-500/15 cursor-pointer disabled:opacity-50 text-xs"
                       >
-                        {rouletteSpinning ? '스핀 휠 구동 중...' : '🎡 룰렛 휠 회전시키기'}
+                        {rouletteSpinning ? 'Spinning...' : '🎡 Spin Wheel'}
                       </button>
                     </div>
                   </div>
@@ -1439,6 +1494,9 @@ export const MiniGameZone: React.FC<MiniGameZoneProps> = ({
                 </div>
               )}
             </div>
+          )}
+
+            </>
           )}
 
         </div>

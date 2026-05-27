@@ -7,8 +7,20 @@ interface SubscriptionTiersProps {
   plans: SubscriptionPlan[];
   activeSubscription: UserSubscription;
   wallet: WalletState;
-  onSubscribe: (planId: SubscriptionDuration, txHash: string, userBnbGasSpent: number, registrant?: { name: string; email: string; phoneNumber?: string }) => void;
-  onAddTransaction: (hash: string, action: string, amount: number, status: 'SUCCESS' | 'FAILED') => void;
+  onSubscribe: (
+    planId: SubscriptionDuration, 
+    txHash: string, 
+    userBnbGasSpent: number, 
+    registrant?: { name: string; email: string; phoneNumber?: string },
+    paymentToken?: 'USDT' | 'WYDA'
+  ) => void;
+  onAddTransaction: (
+    hash: string, 
+    action: string, 
+    amount: number, 
+    status: 'SUCCESS' | 'FAILED',
+    tokenSymbol?: 'USDT' | 'WYDA'
+  ) => void;
   onShowConnectToast: () => void;
 }
 
@@ -22,6 +34,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
 }) => {
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlan | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<'IDLE' | 'NETWORK' | 'APPROVE' | 'EXECUTE' | 'CONFIRMING' | 'SUCCESS'>('IDLE');
+  const [paymentToken, setPaymentToken] = useState<'USDT' | 'WYDA'>('USDT');
   const [errorMessage, setErrorMessage] = useState('');
   const [progressPercent, setProgressPercent] = useState(0);
 
@@ -38,7 +51,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
     }
 
     if (activeSubscription.planId === plan.id && activeSubscription.status === 'ACTIVE') {
-      alert('이미 해당 라이선스로 선물 터미널 구독이 활성화되어 사용 중입니다.');
+      alert('You already have an active subscription for this license.');
       return;
     }
 
@@ -50,9 +63,21 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
   const executeNetworkStep = () => {
     const matchedCountry = ISO_COUNTRIES.find(c => c.code === registrantCountryCode);
     if (matchedCountry?.isBlocked) {
-      setErrorMessage(`제재/규제지역(차단국가) 가입 불허: ${matchedCountry.name} 법역은 테러자금 및 자금세탁 방지법에 의거하여 계정 생성이 통제되어 있습니다.`);
+      setErrorMessage(`Restricted/Sanctioned Region: Sign-up is blocked for ${matchedCountry.name} in compliance with international AML regulations.`);
       return;
     }
+
+    if (paymentToken === 'WYDA') {
+      if (!registrantPhoneLocal.trim()) {
+        setErrorMessage('WYDA payment requires registering a phone number.');
+        return;
+      }
+      if (registrantCountryCode === '+82') {
+        setErrorMessage('WYDA payment is only available for non-Korean registrants with registered phone numbers.');
+        return;
+      }
+    }
+
     setCheckoutStep('APPROVE');
     setProgressPercent(40);
   };
@@ -60,13 +85,31 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
   const executeApproveStep = () => {
     const matchedCountry = ISO_COUNTRIES.find(c => c.code === registrantCountryCode);
     if (matchedCountry?.isBlocked) {
-      setErrorMessage(`제재/규제지역(차단국가) 가입 불허: ${matchedCountry.name} 법역은 테러자금 및 자금세탁 방지법에 의거하여 계정 생성이 통제되어 있습니다.`);
+      setErrorMessage(`Restricted/Sanctioned Region: Sign-up is blocked for ${matchedCountry.name} in compliance with international AML regulations.`);
       return;
     }
-    if (wallet.usdtBalance < (checkoutPlan?.priceTotal ?? 0)) {
-      setErrorMessage(`지갑 잔액(${wallet.usdtBalance.toFixed(2)} USDT)이 필요 결전 금액인 ${checkoutPlan?.priceTotal} USDT보다 낮습니다. 우측 상단의 'USDT 충전' 수도꼭지를 실행해 주세요!`);
+
+    const isWyda = paymentToken === 'WYDA';
+    if (isWyda) {
+      if (!registrantPhoneLocal.trim()) {
+        setErrorMessage('WYDA payment requires registering a phone number.');
+        return;
+      }
+      if (registrantCountryCode === '+82') {
+        setErrorMessage('WYDA payment is only available for non-Korean registrants with registered phone numbers.');
+        return;
+      }
+    }
+
+    const requiredPrice = isWyda ? (checkoutPlan?.priceTotalWyda ?? 350) : (checkoutPlan?.priceTotal ?? 0);
+    const balance = isWyda ? wallet.wydaBalance : wallet.usdtBalance;
+    const symbol = isWyda ? 'WYDA' : 'USDT';
+
+    if (balance < requiredPrice) {
+      setErrorMessage(`Your wallet balance (${balance.toFixed(2)} ${symbol}) is lower than the required price of ${requiredPrice} ${symbol}. Please use the top-right "Refill Tokens" faucet first!`);
       return;
     }
+    
     setCheckoutStep('EXECUTE');
     setProgressPercent(70);
   };
@@ -74,12 +117,20 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
   const executeTransferStep = () => {
     const matchedCountry = ISO_COUNTRIES.find(c => c.code === registrantCountryCode);
     if (matchedCountry?.isBlocked) {
-      setErrorMessage(`제재/규제지역(차단국가) 가입 불허: ${matchedCountry.name} 법역은 테러자금 및 자금세탁 방지법에 의거하여 계정 생성이 통제되어 있습니다.`);
+      setErrorMessage(`Restricted/Sanctioned Region: Sign-up is blocked for ${matchedCountry.name} in compliance with international AML regulations.`);
       return;
     }
     if (!registrantPhoneLocal.trim()) {
-      setErrorMessage('전화번호 입력을 완료해 주십시오.');
+      setErrorMessage('Please enter your phone number.');
       return;
+    }
+
+    const isWyda = paymentToken === 'WYDA';
+    if (isWyda) {
+      if (registrantCountryCode === '+82') {
+        setErrorMessage('WYDA payment is only available for non-Korean registrants with registered phone numbers.');
+        return;
+      }
     }
     
     setCheckoutStep('CONFIRMING');
@@ -100,14 +151,15 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
         }
 
         const gasSpent = 0.0035; // BNB gas spec
+        const requiredPrice = isWyda ? (checkoutPlan?.priceTotalWyda ?? 350) : (checkoutPlan?.priceTotal ?? 0);
 
         // Finalize state changes back to App root
         onSubscribe(checkoutPlan!.id, txHash, gasSpent, { 
           name: registrantName, 
           email: registrantEmail,
           phoneNumber: `${registrantCountryCode} ${registrantPhoneLocal}`
-        });
-        onAddTransaction(txHash, `Futua Simula ${checkoutPlan!.durationMonths}개월 구독 체결`, -checkoutPlan!.priceTotal, 'SUCCESS');
+        }, paymentToken);
+        onAddTransaction(txHash, `Futua Simula ${checkoutPlan!.durationMonths} Month Subscription (${paymentToken})`, -requiredPrice, 'SUCCESS', paymentToken);
         
         setCheckoutStep('SUCCESS');
         setProgressPercent(100);
@@ -118,6 +170,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
   const cancelCheckout = () => {
     setCheckoutPlan(null);
     setCheckoutStep('IDLE');
+    setPaymentToken('USDT');
     setErrorMessage('');
     setProgressPercent(0);
   };
@@ -127,12 +180,12 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
       <div className="text-center mb-8 bg-slate-900/40 p-4 rounded-2xl border border-slate-800">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold mb-2">
           <Database size={13} className="animate-pulse" />
-          <span>Netlify Serverless Database 자동 연동 구조 적용</span>
+          <span>Netlify Serverless Database Integration Active</span>
         </div>
-        <h3 className="text-2xl font-bold text-white tracking-tight">선택 가능한 정기 스마트 결제 요금제</h3>
+        <h3 className="text-2xl font-bold text-white tracking-tight">Flexible Smart Subscription Plans</h3>
         <p className="text-slate-400 text-xs mt-1.5 max-w-2xl mx-auto">
-          결제 체결 상태는 Netlify 호스팅 서버와 Web3 연합 영수증으로 DB 원장에 영구 보존됩니다. <br />
-          요금제 선택 후 가상 이메일 결제 정보가 포함된 트랙킹 메일이 발급됩니다.
+          Transaction records are securely synced with the Netlify hosting server and stored on the ledger database. <br />
+          A simulated receipt email tracking notification is generated upon selecting a subscription.
         </p>
       </div>
 
@@ -153,7 +206,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
               {isActive && (
                 <div className="absolute top-0 right-0 bg-emerald-500 text-slate-950 font-bold text-3xs px-3 py-1 rounded-bl-xl uppercase tracking-wider flex items-center gap-1">
                   <ShieldCheck size={11} />
-                  적용 중
+                  Active
                 </div>
               )}
 
@@ -164,13 +217,21 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                 <h4 className="text-lg font-bold text-white mt-0.5">{plan.name}</h4>
               </div>
 
-              <div className="mb-5">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-4xl font-extrabold text-white font-mono">{plan.priceTotal}</span>
-                  <span className="text-emerald-400 font-extrabold font-mono text-sm">USDT</span>
+              <div className="mb-5 bg-slate-900/30 p-3 rounded-xl border border-slate-900/80 space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-extrabold text-white font-mono">{plan.priceTotal}</span>
+                    <span className="text-emerald-400 font-extrabold font-mono text-2xs uppercase">USDT</span>
+                  </div>
+                  <span className="text-slate-600 text-4xs font-mono">OR</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-bold text-purple-400 font-mono">{plan.priceTotalWyda ?? 350}</span>
+                    <span className="text-purple-400 font-extrabold font-mono text-4xs uppercase">WYDA</span>
+                  </div>
                 </div>
-                <div className="text-slate-500 text-xs mt-1">
-                  총 {plan.durationMonths}개월 계약 (월평균 ~{plan.pricePerMonth.toFixed(2)} USDT)
+                <div className="text-slate-400 text-4xs text-center border-t border-slate-900/50 pt-1 leading-relaxed">
+                  Contract Duration: {plan.durationMonths} Month(s) <br />
+                  (~{plan.pricePerMonth.toFixed(2)} USDT / ~{Math.round((plan.priceTotalWyda ?? 350) / plan.durationMonths)} WYDA per month)
                 </div>
               </div>
 
@@ -194,7 +255,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                     : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold shadow-lg shadow-emerald-500/10'
                 }`}
               >
-                {isActive ? '이미 활성화 완료된 패키지' : `${plan.priceTotal} USDT로 구독 결제 가동`}
+                {isActive ? 'Currently Active License' : 'Subscribe Now'}
                 {!isActive && <ArrowRight size={13} />}
               </button>
             </div>
@@ -209,31 +270,85 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
             {/* Header */}
             <div className="bg-slate-950 px-6 py-4.5 border-b border-slate-900 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="p-1 px-2.5 bg-yellow-500/15 text-yellow-500 font-bold font-mono text-xs rounded-full border border-yellow-500/20">
-                  BEP-20 결제
+                <span className={`p-1 px-2.5 ${paymentToken === 'WYDA' ? 'bg-purple-500/15 text-purple-400 border-purple-500/20' : 'bg-yellow-500/15 text-yellow-500 border-yellow-500/20'} font-bold font-mono text-xs rounded-full border`}>
+                  BEP-20 {paymentToken} Payment
                 </span>
-                <span className="text-sm font-bold text-white">Netlify Live DB 결제 승인 게이트</span>
+                <span className="text-sm font-bold text-white">Netlify DB Live Payment Gateway</span>
               </div>
               <button
                 id="btn-close-checkout-header"
                 onClick={cancelCheckout}
                 className="text-slate-400 hover:text-white font-bold text-sm cursor-pointer"
               >
-                취소
+                Cancel
               </button>
             </div>
 
             {/* Stepper Status Screen */}
-            <div className="p-6">
+            <div className="p-6 font-sans">
+              {/* Currency Selector */}
+              {checkoutStep !== 'SUCCESS' && (
+                <div className="mb-4 bg-slate-950 p-2.5 rounded-xl border border-slate-900/60 flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-slate-400 text-3xs font-extrabold uppercase tracking-wide">💳 Select Payment Currency</span>
+                    <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 shrink-0">
+                      <button
+                        id="choose-usdt-payment"
+                        type="button"
+                        onClick={() => {
+                          setPaymentToken('USDT');
+                          setErrorMessage('');
+                        }}
+                        className={`px-3 py-1.5 text-4xs font-bold rounded-md transition cursor-pointer ${
+                          paymentToken === 'USDT'
+                            ? 'bg-emerald-500 text-black shadow'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        USDT (BEP-20)
+                      </button>
+                      <button
+                        id="choose-wyda-payment"
+                        type="button"
+                        onClick={() => {
+                          if (registrantCountryCode === '+82') {
+                            setErrorMessage('WYDA payment is not supported for Korean users.');
+                            return;
+                          }
+                          if (!registrantPhoneLocal.trim()) {
+                            setErrorMessage('Phone registration is required to pay with WYDA.');
+                            return;
+                          }
+                          setPaymentToken('WYDA');
+                          setErrorMessage('');
+                        }}
+                        className={`px-3 py-1.5 text-4xs font-bold rounded-md transition cursor-pointer ${
+                          paymentToken === 'WYDA'
+                            ? 'bg-purple-500 text-white shadow'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        WYDA (Utility)
+                      </button>
+                    </div>
+                  </div>
+                  <span className="text-4xs text-slate-500 font-mono text-right block leading-normal">
+                    * WYDA is restricted to registered, non-Korean phone numbers only.
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h5 className="text-white text-sm font-bold">{checkoutPlan.name} 신규 계약</h5>
-                  <span className="text-slate-500 text-3xs font-mono">가상 정산고: {TREASURY_WALLET.substring(0, 12)}...</span>
+                  <h5 className="text-white text-sm font-bold">{checkoutPlan.name} checkout</h5>
+                  <span className="text-slate-500 text-3xs font-mono">Treasury Wallet: {TREASURY_WALLET.substring(0, 12)}...</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-slate-500 text-3xs block">청구 비용</span>
-                  <div className="text-emerald-400 font-mono text-xl font-bold">
-                    {checkoutPlan.priceTotal} USDT
+                  <span className="text-slate-500 text-3xs block">Checkout Cost</span>
+                  <div className={`${paymentToken === 'WYDA' ? 'text-purple-400' : 'text-emerald-400'} font-mono text-xl font-bold`}>
+                    {paymentToken === 'WYDA' 
+                      ? `${checkoutPlan.priceTotalWyda ?? 350} WYDA` 
+                      : `${checkoutPlan.priceTotal} USDT`}
                   </div>
                 </div>
               </div>
@@ -241,29 +356,29 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
               {/* Registrant registration form block inside checkout modal */}
               {checkoutStep !== 'SUCCESS' && (
                 <div className="bg-slate-950 p-4 rounded-xl border border-slate-900 mb-4 space-y-3">
-                  <span className="text-slate-400 text-4xs uppercase tracking-wider font-extrabold block font-mono">✍️ 구독 동기화 정보 등록 (DB에 즉시 자동 적재)</span>
+                  <span className="text-slate-400 text-4xs uppercase tracking-wider font-extrabold block font-mono">✍️ Sync Information (Stored on DB records)</span>
                   
                   <div className="grid grid-cols-2 gap-3.5">
                     <div className="space-y-1">
-                      <label className="text-slate-500 text-5xs uppercase font-extrabold block">구독자 성함</label>
+                      <label className="text-slate-500 text-5xs uppercase font-extrabold block">Subscriber Name</label>
                       <input
                         type="text"
                         id="chk-registrant-name-input"
                         value={registrantName}
                         onChange={(e) => setRegistrantName(e.target.value)}
-                        placeholder="이름 입력"
+                        placeholder="Name"
                         className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500"
                         required
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-slate-500 text-5xs uppercase font-extrabold block">수신 이메일 주소</label>
+                      <label className="text-slate-500 text-5xs uppercase font-extrabold block">Billing Email</label>
                       <input
                         type="email"
                         id="chk-registrant-email-input"
                         value={registrantEmail}
                         onChange={(e) => setRegistrantEmail(e.target.value)}
-                        placeholder="savrina25x@gmail.com"
+                        placeholder="mail@domain.com"
                         className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                         required
                       />
@@ -272,7 +387,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
 
                   {/* Phone Registrator & Country Compliance check */}
                   <div className="space-y-1 border-t border-slate-900/60 pt-2.5">
-                    <label className="text-slate-500 text-5xs uppercase font-extrabold block">전화번호 및 국가 정보 등록 (규제비대상 한정)</label>
+                    <label className="text-slate-500 text-5xs uppercase font-extrabold block">Phone & Country Code (AML Compliant Regions Only)</label>
                     <div className="flex gap-2">
                       <select
                         id="chk-registrant-country"
@@ -280,9 +395,14 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                         onChange={(e) => {
                           const pickedVal = e.target.value;
                           setRegistrantCountryCode(pickedVal);
+                          if (pickedVal === '+82' && paymentToken === 'WYDA') {
+                            setPaymentToken('USDT');
+                            setErrorMessage('WYDA payment is not supported for Korean users. Switched to USDT.');
+                            return;
+                          }
                           const countryObj = ISO_COUNTRIES.find(c => c.code === pickedVal);
                           if (countryObj?.isBlocked) {
-                            setErrorMessage(`규제/차단지역 가입 불가: ${countryObj.name} 지역은 자금세탁 방지(AML) 국제 조약에 따른 차단 대상 규제지역입니다.`);
+                            setErrorMessage(`Registration Suspended: ${countryObj.name} is blocked due to international compliance policies.`);
                           } else {
                             setErrorMessage('');
                           }
@@ -291,7 +411,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                       >
                         {ISO_COUNTRIES.map((c) => (
                           <option key={c.code} value={c.code} className={c.isBlocked ? 'text-red-500 block font-bold' : ''}>
-                            {c.flag} {c.code} - {c.name.split(' (')[0]} {c.isBlocked ? ' [차단규제지역]' : ''}
+                            {c.flag} {c.code} - {c.name} {c.isBlocked ? ' [Blocked]' : ''}
                           </option>
                         ))}
                       </select>
@@ -299,7 +419,14 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                         type="text"
                         id="chk-registrant-phone-local"
                         value={registrantPhoneLocal}
-                        onChange={(e) => setRegistrantPhoneLocal(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setRegistrantPhoneLocal(val);
+                          if (!val.trim() && paymentToken === 'WYDA') {
+                            setPaymentToken('USDT');
+                            setErrorMessage('WYDA payment requires a valid registered phone number. Switched to USDT.');
+                          }
+                        }}
                         placeholder="010-1234-5678"
                         className="flex-grow bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                         required
@@ -307,7 +434,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                     </div>
                     {ISO_COUNTRIES.find(c => c.code === registrantCountryCode)?.isBlocked && (
                       <div className="text-red-400 text-5xs uppercase font-sans animate-pulse mt-1 bg-red-950/30 p-1.5 rounded border border-red-900/20 leading-relaxed font-semibold">
-                        🚫 계정 개설 중단: 자사 서비스 약정상 쿠바, 이란, 북한, 시리아, 러시아, 우크라이나 등 타겟 16개 제재규제지역 번호는 보정 및 등록이 불가능합니다.
+                        🚫 Operation Prohibited: Cuba, Iran, North Korea, Syria, Russia, Belarus, and other restricted territories are prohibited from registering.
                       </div>
                     )}
                   </div>
@@ -324,7 +451,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
 
               {/* Error Box */}
               {errorMessage && (
-                <div className="bg-red-950/40 border border-red-900/30 rounded-xl p-3 mb-5 text-red-300 text-xs">
+                <div className="bg-red-950/40 border border-red-900/30 rounded-xl p-3 mb-5 text-red-300 text-xs shadow-inner">
                   {errorMessage}
                 </div>
               )}
@@ -335,9 +462,9 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                   <div className="bg-slate-950 p-4 rounded-xl border border-slate-900 flex items-start gap-3">
                     <Database size={18} className="text-yellow-500 shrink-0 mt-0.5" />
                     <div>
-                      <h6 className="text-white text-xs font-bold leading-normal">단계 1: 바이낸스 스마트 체인 (BSC) 프로토콜 검증</h6>
+                      <h6 className="text-white text-xs font-bold leading-normal">Step 1: Verify BSC Network Connection</h6>
                       <p className="text-slate-500 text-3xs mt-1 leading-normal">
-                        지갑이 현재 올바른 결제 처리 타겟 체인인 **Binance Smart Chain (Chain ID: 56/97)**에 정위 정렬되어 있는지 검사합니다.
+                        Verifies if your Web3 wallet matches the target subscription processor network <strong>BSC Smart Chain (Chain ID: 56/97)</strong>.
                       </p>
                     </div>
                   </div>
@@ -347,14 +474,14 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                       onClick={cancelCheckout}
                       className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-xl font-medium cursor-pointer"
                     >
-                      취소
+                      Cancel
                     </button>
                     <button
                       id="btn-next-network-verify"
                       onClick={executeNetworkStep}
                       className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-950 rounded-xl font-bold cursor-pointer flex items-center gap-1"
                     >
-                      인증 확인
+                      Verify Connection
                       <ArrowRight size={12} />
                     </button>
                   </div>
@@ -364,11 +491,11 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
               {checkoutStep === 'APPROVE' && (
                 <div className="space-y-4">
                   <div className="bg-slate-950 p-4 rounded-xl border border-slate-900 flex items-start gap-3">
-                    <Clock size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+                    <Clock size={18} className="text-indigo-400 shrink-0 mt-0.5" />
                     <div>
-                      <h6 className="text-white text-xs font-bold leading-normal">단계 2: BEP-20 USDT 지출 서명 (Approve)</h6>
+                      <h6 className="text-white text-xs font-bold leading-normal">Step 2: BEP-20 {paymentToken} Allowance Approval</h6>
                       <p className="text-slate-500 text-3xs mt-1 leading-normal">
-                        선물 시뮬레이터 플랫폼 스마트 컨트랙트가 본 지갑의 **{checkoutPlan.priceTotal} USDT** 한도를 정산소로 수납할 수 있도록 허가 요청을 발행합니다.
+                        Authorizes the smart contract to process **{paymentToken === 'WYDA' ? `${checkoutPlan.priceTotalWyda ?? 350} WYDA` : `${checkoutPlan.priceTotal} USDT`}** from your wallet.
                       </p>
                     </div>
                   </div>
@@ -378,14 +505,14 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                       onClick={cancelCheckout}
                       className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-xl font-medium"
                     >
-                      취소
+                      Cancel
                     </button>
                     <button
                       id="btn-next-approve"
                       onClick={executeApproveStep}
-                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-bold cursor-pointer flex items-center gap-1"
+                      className={`px-4 py-2 ${paymentToken === 'WYDA' ? 'bg-purple-500 hover:bg-purple-400' : 'bg-emerald-500 hover:bg-emerald-400'} text-slate-950 rounded-xl font-bold cursor-pointer flex items-center gap-1`}
                     >
-                      USDT 지출 인가
+                      Authorize {paymentToken}
                       <ArrowRight size={12} />
                     </button>
                   </div>
@@ -397,9 +524,9 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                   <div className="bg-slate-950 p-4 rounded-xl border border-slate-900 flex items-start gap-3">
                     <Cpu size={18} className="text-purple-400 shrink-0 mt-0.5" />
                     <div>
-                      <h6 className="text-white text-xs font-bold leading-normal">단계 3: 영수증 처리 및 Netlify Database 원장 갱신</h6>
+                      <h6 className="text-white text-xs font-bold leading-normal">Step 3: Process Contract Receipt & Sync Netlify DB</h6>
                       <p className="text-slate-500 text-3xs mt-1 leading-normal">
-                        USDT 지출 한도가 완벽히 확인되었습니다. 영수증 최종 대조 트랜잭션을 전송하며, 실행에 필요한 극밀도의 가스비(약 0.0035 BNB)가 소모되고, 동시에 Netlify Database 서버로의 백업 큐가 자동 할정됩니다.
+                        {paymentToken} checking limits confirmed. Submits the contract invocation transaction onto the network with an estimated gas fee of 0.0035 BNB, instantly queueing sync tasks with Netlify Serverless DB.
                       </p>
                     </div>
                   </div>
@@ -409,14 +536,14 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                       onClick={cancelCheckout}
                       className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-xl font-medium"
                     >
-                      취소
+                      Cancel
                     </button>
                     <button
                       id="btn-execute-send"
                       onClick={executeTransferStep}
                       className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 rounded-xl font-bold cursor-pointer flex items-center gap-1"
                     >
-                      최종 블록체인 서명 및 수납
+                      Sign & Submit Transaction
                       <ArrowRight size={12} />
                     </button>
                   </div>
@@ -426,35 +553,39 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
               {checkoutStep === 'CONFIRMING' && (
                 <div className="text-center py-6">
                   <Loader2 className="mx-auto h-8 w-8 text-emerald-400 animate-spin" />
-                  <h6 className="text-white text-xs font-bold mt-4">BSC 체인 검산 및 Netlify DB 실시간 동기화 중...</h6>
+                  <h6 className="text-white text-xs font-bold mt-4">Confirming settlement & Syncing with Netlify DB...</h6>
                   <p className="text-slate-500 text-3xs mt-1 leading-normal max-w-xs mx-auto">
-                    바이낸스 노드 합의 대기 및 Netlify 데이터베이스에 트랜잭션 수치 락을 저장하고 있습니다. 대략 2초 소요됩니다.
+                    Awaiting Binance node consensus consensus tasks and processing synchronization keys. Takes roughly 2-3 seconds.
                   </p>
                 </div>
               )}
 
               {checkoutStep === 'SUCCESS' && (
-                <div className="text-center py-4 space-y-4">
+                <div className="text-center py-4 space-y-4 font-sans">
                   <span className="inline-flex items-center justify-center p-3 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
                     <Check size={28} />
                   </span>
                   <div>
-                    <h6 className="text-emerald-400 text-base font-bold">블록체인 영수증 서명 및 Netlify DB 동기화 성공!</h6>
+                    <h6 className="text-emerald-400 text-base font-bold">Consensus Verified & Netlify DB Synced Successfully!</h6>
                     <p className="text-slate-300 text-xs mt-1 max-w-sm mx-auto leading-normal">
-                      Netlify Serverless Database가 새로운 {checkoutPlan.name} 상태를 안전하게 적재 적용하였습니다. 하단 영역에서 시뮬레이터 프로그램 인스톨 패키지를 자유롭게 내려받으십시오!
+                      Netlify Serverless Database has written and activated your new {checkoutPlan.name} license successfully. Portable installation downloads are now unlocked!
                     </p>
                   </div>
                   <div className="bg-slate-950 p-3 rounded-xl text-left border border-slate-900 mx-auto max-w-sm">
                     <div className="flex justify-between text-3xs mb-1 font-mono">
-                      <span className="text-slate-500">계약 패키지</span>
+                      <span className="text-slate-550">Package Licensed</span>
                       <span className="text-white font-bold">{checkoutPlan.name}</span>
                     </div>
                     <div className="flex justify-between text-3xs mb-1 font-mono">
-                      <span className="text-slate-500">총 결제 금액</span>
-                      <span className="text-emerald-400 font-bold">{checkoutPlan.priceTotal} USDT</span>
+                      <span className="text-slate-550">Settled Amount</span>
+                      <span className={`${paymentToken === 'WYDA' ? 'text-purple-400' : 'text-emerald-400'} font-bold`}>
+                        {paymentToken === 'WYDA' 
+                          ? `${checkoutPlan.priceTotalWyda ?? 350} WYDA` 
+                          : `${checkoutPlan.priceTotal} USDT`}
+                      </span>
                     </div>
                     <div className="flex justify-between text-3xs font-mono">
-                      <span className="text-slate-500">DB 동기화 상태</span>
+                      <span className="text-slate-550">Netlify Sync Status</span>
                       <span className="text-emerald-400 font-bold leading-none">&#10003; Synced (Netlify API)</span>
                     </div>
                   </div>
@@ -464,7 +595,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                       onClick={cancelCheckout}
                       className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl cursor-pointer"
                     >
-                      다이얼로그 닫기
+                      Close Dialog
                     </button>
                   </div>
                 </div>

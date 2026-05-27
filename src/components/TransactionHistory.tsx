@@ -20,30 +20,30 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
             </span>
             <span className="text-xs font-semibold uppercase text-yellow-500 font-mono">BSC-Scan Ledger</span>
           </div>
-          <h3 className="text-xl font-bold text-white mt-1">지갑 거래 및 결제 이력 (BscScan 모사)</h3>
+          <h3 className="text-xl font-bold text-white mt-1">Wallet Transactions & Payment History (BscScan Replica)</h3>
         </div>
         
         <div className="text-slate-500 text-xs">
-          총 {transactions.length}개의 확인된 체인 로그 발견
+          Total {transactions.length} verified chain logs found
         </div>
       </div>
 
       <div className="mt-6 overflow-x-auto">
         {transactions.length === 0 ? (
           <div className="text-center py-8 text-slate-500 text-xs">
-            기록된 거래 기록이 아직 존재하지 않습니다. Faucet Claim 혹은 구독 모의 결제를 진행해 보십시오.
+            No transactions found. Try requesting test tokens from the faucet or starting a subscription checkout simulation.
           </div>
         ) : (
           <table className="w-full text-left font-mono text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-850 text-slate-500 text-2xs uppercase">
-                <th className="pb-3 pl-2">액션</th>
-                <th className="pb-3 text-center">트랜잭션 해시</th>
-                <th className="pb-3 text-right">금액</th>
-                <th className="pb-3 text-right">가스 사용량 (BNB)</th>
-                <th className="pb-3 text-center">시간</th>
-                <th className="pb-3 text-center">상태</th>
-                <th className="pb-3 text-center pr-2">조회</th>
+                <th className="pb-3 pl-2">Action</th>
+                <th className="pb-3 text-center">Tx Hash</th>
+                <th className="pb-3 text-right">Value</th>
+                <th className="pb-3 text-right">Gas Used (BNB)</th>
+                <th className="pb-3 text-center">Time</th>
+                <th className="pb-3 text-center">Status</th>
+                <th className="pb-3 text-center pr-2">View</th>
               </tr>
             </thead>
             <tbody>
@@ -78,7 +78,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
                     <button
                       id={`btn-open-scan-explorer-${tx.hash.substring(0, 8)}`}
                       onClick={() => setSelectedTx(tx)}
-                      className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition cursor-pointer"
+                      className="p-1 hover:bg-slate-880 text-slate-400 hover:text-white rounded transition cursor-pointer"
                     >
                       <ArrowUpRight size={14} />
                     </button>
@@ -99,7 +99,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
               <div className="flex items-center gap-2">
                 <FileCode2 className="text-yellow-500 animate-spin-slow" size={20} />
                 <span className="text-xs font-black tracking-wide text-white uppercase font-sans">
-                  BSC-Explorer (BscScan 시뮬레이션 인터페이스)
+                  BSC-Explorer (BscScan Simulation Interface)
                 </span>
               </div>
               <button
@@ -114,7 +114,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
             <div className="p-6 space-y-5 font-mono text-xs">
               <div className="flex items-center justify-between">
                 <h4 className="text-slate-200 text-sm font-bold flex items-center gap-2 font-sans">
-                  트랜잭션 상세 조회 데이터
+                  Transaction Detail Specifications
                   <span className="text-4xs bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded uppercase font-mono font-medium leading-none">
                     Status: Verified
                   </span>
@@ -131,7 +131,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-4 py-2 border-b border-slate-900">
-                  <span className="text-slate-500">Status</span>
+                  <span className="text-slate-550">Status</span>
                   <span className="md:col-span-2 text-emerald-400 font-bold flex items-center gap-1">
                     <CheckCircle size={12} />
                     {selectedTx.status} (Confirmed in block {selectedTx.blockNumber})
@@ -139,12 +139,12 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-4 py-2 border-b border-slate-900">
-                  <span className="text-slate-500">From (지갑 소유자)</span>
+                  <span className="text-slate-500">From (Wallet Owner)</span>
                   <span className="md:col-span-2 text-slate-300 break-all">{selectedTx.from}</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-4 py-2 border-b border-slate-900">
-                  <span className="text-slate-500">To (스마트 컨트랙트)</span>
+                  <span className="text-slate-550">To (Smart Contract)</span>
                   <span className="md:col-span-2 text-slate-300 break-all">
                     {selectedTx.to === TREASURY_WALLET 
                       ? `${TREASURY_WALLET} (Futua Simula Subscription Treasury)`
@@ -153,14 +153,14 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-4 py-2 border-b border-slate-900">
-                  <span className="text-slate-500">Value (전송 금액)</span>
+                  <span className="text-slate-500">Value (Transfer Amount)</span>
                   <span className="md:col-span-2 text-white font-bold">
                     {selectedTx.value} {selectedTx.tokenSymbol}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-4 py-2 border-b border-slate-900">
-                  <span className="text-slate-500">Methane Gas Details</span>
+                  <span className="text-slate-550">Methane Gas Details</span>
                   <span className="md:col-span-2 text-slate-400">
                     <span className="text-white font-bold">{selectedTx.gasFee.toFixed(6)} BNB</span> (Gas limit: 120,535 | Gas Price: 3 Gwei)
                   </span>
@@ -180,7 +180,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
                   Timestamp: {selectedTx.timestamp} (GMT+9)
                 </span>
                 <span className="flex items-center gap-1 hover:text-white transition">
-                  BscScan 외부 노드와 자동 연동됨 
+                  Synchronized with BSC external simulation node
                   <ExternalLink size={10} />
                 </span>
               </div>
@@ -191,7 +191,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
                   onClick={() => setSelectedTx(null)}
                   className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition"
                 >
-                  확인 후 모의 브라우저 닫기
+                  Close Simulation Details
                 </button>
               </div>
             </div>

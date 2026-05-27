@@ -5,6 +5,7 @@ export interface WalletState {
   address: string | null;
   bnbBalance: number;
   usdtBalance: number;
+  wydaBalance: number;
   network: NetworkType;
 }
 
@@ -16,6 +17,8 @@ export interface SubscriptionPlan {
   durationMonths: number;
   priceTotal: number;
   pricePerMonth: number;
+  priceTotalWyda?: number;
+  pricePerMonthWyda?: number;
   features: string[];
 }
 
@@ -34,8 +37,8 @@ export interface BSCTransaction {
   timestamp: string;
   from: string;
   to: string;
-  value: number; // USDT amount
-  tokenSymbol: 'USDT' | 'BNB';
+  value: number; // Token amount (USDT or WYDA)
+  tokenSymbol: 'USDT' | 'BNB' | 'WYDA';
   gasFee: number; // BNB
   action: string;
   status: 'SUCCESS' | 'FAILED' | 'PENDING';

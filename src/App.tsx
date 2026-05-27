@@ -19,7 +19,13 @@ export default function App() {
     const saved = localStorage.getItem('FUTUA_SIMULA_WALLET');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.wydaBalance === undefined) {
+            parsed.wydaBalance = parsed.isConnected ? 1500.0 : 0.0;
+          }
+          return parsed;
+        }
       } catch {
         // ignore
       }
@@ -29,6 +35,7 @@ export default function App() {
       address: null,
       bnbBalance: 0,
       usdtBalance: 0,
+      wydaBalance: 0,
       network: 'BSC_MAINNET',
     };
   });
@@ -189,6 +196,44 @@ export default function App() {
     localStorage.setItem('FUTUA_SIMULA_SUBSCRIBERS', JSON.stringify(subscribers));
   }, [subscribers]);
 
+  // Real MetaMask Events Synchronization
+  useEffect(() => {
+    const ethereum = (window as any).ethereum;
+    if (ethereum && wallet.isConnected) {
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length > 0) {
+          const newAddress = accounts[0];
+          setWallet((prev) => ({
+            ...prev,
+            address: newAddress,
+          }));
+          triggerToast('success', `BSC Wallet account updated via MetaMask: ${newAddress.substring(0, 8)}...`);
+        } else {
+          handleDisconnectWallet();
+          triggerToast('info', 'MetaMask wallet disconnected by user.');
+        }
+      };
+
+      const handleChainChanged = (chainIdHex: string) => {
+        const chainId = parseInt(chainIdHex, 10) || parseInt(chainIdHex, 16);
+        const resolvedNetwork = (chainId === 97) ? 'BSC_TESTNET' : 'BSC_MAINNET';
+        setWallet((prev) => ({
+          ...prev,
+          network: resolvedNetwork,
+        }));
+        triggerToast('info', `MetaMask network changed to ${resolvedNetwork === 'BSC_TESTNET' ? 'BSC Testnet' : 'BSC Mainnet'}`);
+      };
+
+      ethereum.on('accountsChanged', handleAccountsChanged);
+      ethereum.on('chainChanged', handleChainChanged);
+
+      return () => {
+        ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        ethereum.removeListener('chainChanged', handleChainChanged);
+      };
+    }
+  }, [wallet.isConnected]);
+
   const triggerToast = (type: 'success' | 'error' | 'info', message: string) => {
     setToast({ show: true, type, message });
     setTimeout(() => {
@@ -196,35 +241,111 @@ export default function App() {
     }, 4500);
   };
 
-  const handleConnectWallet = () => {
-    const hex = '0123456789abcdef';
-    let randAddress = '0x';
-    for (let i = 0; i < 40; i++) {
-      randAddress += hex.charAt(Math.floor(Math.random() * hex.length));
-    }
+  const handleConnectWallet = async () => {
+    const ethereum = (window as any).ethereum;
 
-    setWallet({
-      isConnected: true,
-      address: randAddress,
-      bnbBalance: 0.25,
-      usdtBalance: 40.0, // initial test subscription fund
-      network: 'BSC_TESTNET',
-    });
+    const connectSimulated = () => {
+      const hex = '0123456789abcdef';
+      let randAddress = '0x';
+      for (let i = 0; i < 40; i++) {
+        randAddress += hex.charAt(Math.floor(Math.random() * hex.length));
+      }
 
-    // Automatically check if this wallet address belongs to an existing subscriber and synchronize subscription state
-    const match = subscribers.find(s => s.walletAddress && s.walletAddress.toLowerCase() === randAddress.toLowerCase());
-    if (match && match.status === 'ACTIVE') {
-      setSubscription({
-        planId: match.planId,
-        activatedAt: match.activatedAt,
-        expiresAt: match.expiresAt,
-        status: 'ACTIVE',
-        dbSynced: true,
-        lastSyncTime: new Date().toLocaleString()
+      setWallet({
+        isConnected: true,
+        address: randAddress,
+        bnbBalance: 0.25,
+        usdtBalance: 40.0, // initial test subscription fund
+        wydaBalance: 1500.0, // initial test WYDA fund
+        network: 'BSC_TESTNET',
       });
-      triggerToast('success', `가상 BSC 지갑이 연동되었습니다! 동기화된 VIP 구독이 감지되어 라이선스가 적용됩니다.`);
+
+      // Automatically check if this wallet address belongs to an existing subscriber and synchronize subscription state
+      const match = subscribers.find(s => s.walletAddress && s.walletAddress.toLowerCase() === randAddress.toLowerCase());
+      if (match && match.status === 'ACTIVE') {
+        setSubscription({
+          planId: match.planId,
+          activatedAt: match.activatedAt,
+          expiresAt: match.expiresAt,
+          status: 'ACTIVE',
+          dbSynced: true,
+          lastSyncTime: new Date().toLocaleString()
+        });
+        triggerToast('success', 'Simulated BSC wallet connected! Active VIP subscription detected and live license applied.');
+      } else {
+        triggerToast('success', 'Simulated BSC wallet connected for local testing. (1,500 WYDA, 40.0 USDT sandbox funds)');
+      }
+    };
+
+    if (ethereum) {
+      try {
+        triggerToast('info', 'Requesting MetaMask wallet authorization...');
+        
+        // Request accounts from MetaMask
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+        if (!accounts || accounts.length === 0) {
+          throw new Error('Authorized MetaMask account list is empty.');
+        }
+
+        const realAddress = accounts[0];
+        
+        // Request chainId
+        const chainIdHex = await ethereum.request({ method: 'eth_chainId' }).catch(() => '0x38');
+        const chainId = parseInt(chainIdHex, 16);
+        const resolvedNetwork = (chainId === 97) ? 'BSC_TESTNET' : 'BSC_MAINNET';
+
+        // Fetch actual BNB balance on BSC chain
+        let bnbBalance = 0.25;
+        try {
+          const balHex = await ethereum.request({
+            method: 'eth_getBalance',
+            params: [realAddress, 'latest']
+          });
+          if (balHex) {
+            const balWei = parseInt(balHex, 16);
+            bnbBalance = Number((balWei / 1e18).toFixed(4));
+          }
+        } catch {
+          // Soft ignore
+        }
+
+        setWallet({
+          isConnected: true,
+          address: realAddress,
+          bnbBalance: bnbBalance || 0.25,
+          usdtBalance: 40.0, 
+          wydaBalance: 1500.0, 
+          network: resolvedNetwork,
+        });
+
+        // Automatically check if this wallet address belongs to an existing subscriber and synchronize subscription state
+        const match = subscribers.find(s => s.walletAddress && s.walletAddress.toLowerCase() === realAddress.toLowerCase());
+        if (match && match.status === 'ACTIVE') {
+          setSubscription({
+            planId: match.planId,
+            activatedAt: match.activatedAt,
+            expiresAt: match.expiresAt,
+            status: 'ACTIVE',
+            dbSynced: true,
+            lastSyncTime: new Date().toLocaleString()
+          });
+          triggerToast('success', 'MetaMask wallet connected successfully! Active VIP subscription synchronized and applied.');
+        } else {
+          triggerToast('success', `MetaMask wallet (${realAddress.substring(0, 8)}...) connected successfully!`);
+        }
+
+      } catch (error: any) {
+        console.warn('Real MetaMask connection failed:', error);
+        if (error?.code === 4001) {
+          triggerToast('error', 'User Cancelled: MetaMask wallet connection request rejected by user.');
+        } else {
+          triggerToast('error', 'Error connecting to MetaMask. Launching local simulated wallet for preview fallback.');
+          connectSimulated();
+        }
+      }
     } else {
-      triggerToast('success', '가상 BSC 메타마스크 지갑이 연결되었습니다. (테스트용 자금 40.0 USDT 지급됨)');
+      triggerToast('info', 'MetaMask browser extension not detected. Automatically connecting developer simulated wallet (Open in New Tab if you have MetaMask installed).');
+      connectSimulated();
     }
   };
 
@@ -234,6 +355,7 @@ export default function App() {
       address: null,
       bnbBalance: 0,
       usdtBalance: 0,
+      wydaBalance: 0,
       network: 'BSC_MAINNET',
     });
     
@@ -247,7 +369,7 @@ export default function App() {
     };
     setSubscription(nextSub);
 
-    triggerToast('info', '가상 지갑 연결이 취소되었습니다. 구독 상태가 만료 처리됩니다.');
+    triggerToast('info', 'Metamask wallet disconnected. Active license session cleared.');
   };
 
   const handleNetworkSwitch = () => {
@@ -255,7 +377,7 @@ export default function App() {
       ...prev,
       network: prev.network === 'BSC_MAINNET' ? 'BSC_TESTNET' : 'BSC_MAINNET',
     }));
-    triggerToast('info', '블록체인 네트워크 정합이 변경되었습니다.');
+    triggerToast('info', 'Blockchain network config updated.');
   };
 
   const handleClaimFaucet = () => {
@@ -267,6 +389,7 @@ export default function App() {
         ...prev,
         bnbBalance: prev.bnbBalance + 0.5,
         usdtBalance: prev.usdtBalance + 50.0,
+        wydaBalance: prev.wydaBalance + 1000.0,
       }));
 
       const chars = '0123456789abcdef';
@@ -276,7 +399,7 @@ export default function App() {
       }
 
       const txTime = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
-      const newTx: BSCTransaction = {
+      const newTx1: BSCTransaction = {
         hash: faucetHash,
         blockNumber: 38291130,
         timestamp: txTime,
@@ -285,13 +408,30 @@ export default function App() {
         value: 50.0,
         tokenSymbol: 'USDT',
         gasFee: 0.00025,
-        action: 'USDT 충전 수도꼭지 실행 완료',
+        action: 'USDT Faucet Faucet execution completed successfully',
         status: 'SUCCESS',
       };
 
-      setTransactions((prev) => [newTx, ...prev]);
+      let faucetHash2 = '0xfd';
+      for (let i = 0; i < 62; i++) {
+        faucetHash2 += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const newTx2: BSCTransaction = {
+        hash: faucetHash2,
+        blockNumber: 38291131,
+        timestamp: txTime,
+        from: '0x0000000000000000000000000000000000000000',
+        to: wallet.address!,
+        value: 1000.0,
+        tokenSymbol: 'WYDA',
+        gasFee: 0.00025,
+        action: 'WYDA Faucet Faucet execution completed successfully',
+        status: 'SUCCESS',
+      };
+
+      setTransactions((prev) => [newTx1, newTx2, ...prev]);
       setIsClaiming(false);
-      triggerToast('success', '테스트 결제용 50.0 USDT와 가스비 0.5 BNB가 충전되었습니다!');
+      triggerToast('success', 'Faucet Claimed: 50.0 USDT, 1,000.0 WYDA, and 0.5 BNB gas fees have been added to your wallet!');
     }, 1000);
   };
 
@@ -300,7 +440,8 @@ export default function App() {
     planId: SubscriptionDuration, 
     txHash: string, 
     userBnbGasSpent: number,
-    registrant?: { name: string; email: string; phoneNumber?: string }
+    registrant?: { name: string; email: string; phoneNumber?: string },
+    paymentToken: 'USDT' | 'WYDA' = 'USDT'
   ) => {
     const matchedPlan = SUBSCRIPTION_PLANS.find((p) => p.id === planId);
     if (!matchedPlan) return;
@@ -309,10 +450,14 @@ export default function App() {
     const expiry = new Date();
     expiry.setMonth(expiry.getMonth() + matchedPlan.durationMonths);
 
+    const isWyda = paymentToken === 'WYDA';
+    const price = isWyda ? (matchedPlan.priceTotalWyda ?? 350) : matchedPlan.priceTotal;
+
     // Deduct standard pricing
     setWallet((prev) => ({
       ...prev,
-      usdtBalance: parseFloat(Math.max(0, prev.usdtBalance - matchedPlan.priceTotal).toFixed(2)),
+      usdtBalance: !isWyda ? parseFloat(Math.max(0, prev.usdtBalance - price).toFixed(2)) : prev.usdtBalance,
+      wydaBalance: isWyda ? parseFloat(Math.max(0, prev.wydaBalance - price).toFixed(2)) : prev.wydaBalance,
       bnbBalance: parseFloat(Math.max(0, prev.bnbBalance - userBnbGasSpent).toFixed(4)),
     }));
 
@@ -345,7 +490,7 @@ export default function App() {
         status: 'ACTIVE',
         walletAddress: wallet.address,
         phoneNumber: registrantPhone || prev[existsIndex]?.phoneNumber || '',
-        notes: `BSC BEP-20 USDT 결제 완료 신규 승인. TX: ${txHash.substring(0, 10)}...`,
+        notes: `BSC BEP-20 ${paymentToken} settlement confirmed. TX ID: ${txHash.substring(0, 10)}...`,
       };
 
       if (existsIndex !== -1) {
@@ -357,10 +502,16 @@ export default function App() {
       }
     });
 
-    triggerToast('success', `${matchedPlan.name} 가입이 승인되었습니다. Netlify DB 원장에 기록 완료!`);
+    triggerToast('success', `${matchedPlan.name} enrollment approved! Synced with Netlify core database registry.`);
   };
 
-  const handleAddTransaction = (hash: string, action: string, amount: number, status: 'SUCCESS' | 'FAILED') => {
+  const handleAddTransaction = (
+    hash: string, 
+    action: string, 
+    amount: number, 
+    status: 'SUCCESS' | 'FAILED',
+    tokenSymbol: 'USDT' | 'WYDA' = 'USDT'
+  ) => {
     if (!wallet.isConnected) return;
 
     const txTime = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
@@ -371,7 +522,7 @@ export default function App() {
       from: wallet.address!,
       to: TREASURY_WALLET,
       value: Math.abs(amount),
-      tokenSymbol: 'USDT',
+      tokenSymbol,
       gasFee: 0.0035,
       action,
       status,
@@ -399,14 +550,14 @@ export default function App() {
             ...s,
             planId: 'FREE',
             status: 'NONE',
-            notes: '유저 본인 직접 포탈 화면에서 VIP 구독 만료/해지 처리.',
+            notes: 'User subscription manually cancelled on dashboard.',
           };
         }
         return s;
       })
     );
 
-    triggerToast('info', '구독 라이선스가 취소 처리되었으며 Netlify DB에 정보가 동기화 반영되었습니다.');
+    triggerToast('info', 'Subscription license cancelled. Changes synchronized with Netlify DB.');
   };
 
   const handleSimulateRenewal = () => {
@@ -431,9 +582,9 @@ export default function App() {
         renewalHash += chars.charAt(Math.floor(Math.random() * chars.length));
       }
 
-      handleAddTransaction(renewalHash, 'Netlify DB API 호출 (구독 보존상태 확인)', 0, 'SUCCESS');
+      handleAddTransaction(renewalHash, 'Netlify DB API Call (License validation confirm)', 0, 'SUCCESS');
       setIsSimulatingRenewal(false);
-      triggerToast('success', 'Netlify Serverless Database와 결제 검산이 동기화되었습니다.');
+      triggerToast('success', 'Netlify Serverless Database license audit completed successfully.');
     }, 1000);
   };
 
@@ -455,7 +606,7 @@ export default function App() {
           return {
             ...s,
             status: 'EXPIRED',
-            notes: '시스템 결제 실패 크론탭 시뮬레이션 영향으로 강제 강등 처리.',
+            notes: 'Forced subscription demotion triggered by payment fail simulation.',
           };
         }
         return s;
@@ -509,7 +660,7 @@ export default function App() {
   };
 
   const handleResetSubscribers = () => {
-    if (window.confirm('기존 구독자 데이터베이스를 전부 밀어버리고 초기 시드 팩토리값 대표군들로 완전 재구축하시겠습니까?')) {
+    if (window.confirm('Are you absolutely sure you want to completely dump the existing database and rebuild from initial seed values?')) {
       setSubscribers(getSubscribersSeeds());
       
       // Update global active subscription to ACTIVE by referencing first seed if user is matched
@@ -524,18 +675,18 @@ export default function App() {
           lastSyncTime: new Date().toLocaleString()
         });
       }
-      triggerToast('success', '데이터베이스 원장이 최초 테스트용 시드로 다시 점검 정립 완료되었습니다.');
+      triggerToast('success', 'Subscription database restored to default seed factory levels.');
     }
   };
 
 
   const activePlan = SUBSCRIPTION_PLANS.find((p) => p.id === subscription.planId) || {
     id: 'FREE' as SubscriptionDuration,
-    name: 'Free Trial 기본 모드',
+    name: 'Free Trial Basic Mode',
     durationMonths: 0,
     priceTotal: 0,
     pricePerMonth: 0,
-    features: ['시뮬레이터 다운로드 가능'],
+    features: ['Simulator downloads enabled'],
   };
 
   // Synchronize Active user subscription state with their Subscriber profile state reactively
@@ -584,20 +735,20 @@ export default function App() {
                   Netlify DB Sync
                 </span>
               </div>
-              <p className="text-slate-500 text-3xs mt-0.5">간편 구독 정산 결제 & 프로그램 기기 다운로드 클라이언트 데스크</p>
+              <p className="text-slate-500 text-3xs mt-0.5">Easy subscription settlement and main terminal application client port</p>
             </div>
           </div>
 
           {/* Quick Stats overview */}
           <div className="flex items-center gap-4 text-xs font-mono bg-slate-900/50 p-2 px-3 rounded-lg border border-slate-850">
             <div className="text-right">
-              <span className="text-slate-500 text-4xs uppercase block font-sans">구독 상태</span>
+              <span className="text-slate-500 text-4xs uppercase block font-sans">Subscription Status</span>
               <span className="text-emerald-400 font-bold">{activePlan.name}</span>
             </div>
             <div className="h-5 w-px bg-slate-800" />
             <div className="text-right">
-              <span className="text-slate-500 text-4xs uppercase block font-sans">보유 USDT</span>
-              <span className="text-white font-bold">{wallet.isConnected ? `${wallet.usdtBalance.toFixed(2)} USDT` : '미연결'}</span>
+              <span className="text-slate-500 text-4xs uppercase block font-sans">USDT Balance</span>
+              <span className="text-white font-bold">{wallet.isConnected ? `${wallet.usdtBalance.toFixed(2)} USDT` : 'Disconnected'}</span>
             </div>
           </div>
 
@@ -617,7 +768,7 @@ export default function App() {
             }`}
           >
             <CreditCard size={13} />
-            구독 및 스마트 결제 대시보드
+            Subscription & Smart Payment Dashboard
           </button>
 
           <button
@@ -630,7 +781,7 @@ export default function App() {
             }`}
           >
             <Users size={13} />
-            구독자 회원 대시보드 (DB 원장 관리)
+            Subscriber Member Dashboard (DB Ledger Admin)
           </button>
 
           <button
@@ -643,7 +794,7 @@ export default function App() {
             }`}
           >
             <Gamepad2 size={13} />
-            프리미엄 미니게임 센터
+            Premium Mini Game Zone
           </button>
         </div>
       </div>
@@ -653,6 +804,27 @@ export default function App() {
         
         {activeTab === 'DASHBOARD' && (
           <div className="space-y-6">
+            {/* Global Distribution & Regional Disclaimer Notice Card */}
+            <div className="bg-slate-950 border border-red-900/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden" id="regional-disclaimer-banner">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl pointer-events-none" />
+              <div className="flex items-start gap-4">
+                <div className="p-2.5 bg-red-500/10 text-red-400 rounded-xl shrink-0 border border-red-500/20">
+                  <ShieldAlert size={18} />
+                </div>
+                <div className="text-xs text-slate-300 leading-relaxed font-sans">
+                  <span className="font-bold text-red-400 block mb-1 text-sm tracking-wide uppercase">⚠️ Important Licensing Notice</span>
+                  This product is not intended for distribution or use in the following countries: China, Russia, Iran, North Korea, Syria, Cuba, Venezuela, Belarus, Nordic Union Contries, Ukraine. Users from these regions may face legal or technical restrictions. Also, if you're-living in Nordic Union or Ukraine, you can buy a package in{' '}
+                  <a href="https://booth.pm/ja/items/8397034" target="_blank" rel="noopener noreferrer" className="text-emerald-405 text-emerald-400 hover:text-emerald-300 underline font-mono font-bold transition">
+                    https://booth.pm/ja/items/8397034
+                  </a>{' '}
+                  or{' '}
+                  <a href="https://justyxxx.itch.io/futuasimula" target="_blank" rel="noopener noreferrer" className="text-emerald-405 text-emerald-400 hover:text-emerald-300 underline font-mono font-bold transition">
+                    https://justyxxx.itch.io/futuasimula
+                  </a> .
+                </div>
+              </div>
+            </div>
+
             {/* Step 1: Wallet connect and credit Faucet */}
             <WalletConnect
               wallet={wallet}
@@ -680,7 +852,7 @@ export default function App() {
               wallet={wallet}
               onSubscribe={handleSubscribe}
               onAddTransaction={handleAddTransaction}
-              onShowConnectToast={() => triggerToast('error', '구독 결제를 완료하기에 앞서 상단의 지갑 연동을 구성해 주십시오.')}
+              onShowConnectToast={() => triggerToast('error', 'Please connect your Metamask wallet on top before proceeding to checkout.')}
             />
 
             {/* Step 4: Subscription Expatriation & Payment Failure Alerts Control Cockpit */}

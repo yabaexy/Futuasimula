@@ -126,13 +126,13 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formEmail.trim()) {
-      triggerToast('error', '이름과 이메일 주소는 필수 기재 사항입니다.');
+      triggerToast('error', 'Name and E-mail Address are required fields.');
       return;
     }
 
     const matchedCountry = ISO_COUNTRIES.find(c => c.code === formCountryCode);
     if (matchedCountry?.isBlocked) {
-      triggerToast('error', `차단 대상 법역 가입 불가: ${matchedCountry.name} 국가 번호는 국제 규제 및 당사 규정에 의해 회원 영구 원장에 등록될 수 없습니다.`);
+      triggerToast('error', `Sanctioned Jurisdiction: Subscribers from ${matchedCountry.name} are blocked by international regulations and cannot be registered in the core database ledger.`);
       return;
     }
 
@@ -149,20 +149,20 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
     });
 
     setIsAddOpen(false);
-    triggerToast('success', `${formName} 구독자 정보가 데이터베이스에 원장 기록되었습니다.`);
+    triggerToast('success', `${formName} has been successfully saved to the core subscription ledger.`);
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSub) return;
     if (!formName.trim() || !formEmail.trim()) {
-      triggerToast('error', '이름과 이메일 주소는 필수 기재 사항입니다.');
+      triggerToast('error', 'Name and E-mail Address are required fields.');
       return;
     }
 
     const matchedCountry = ISO_COUNTRIES.find(c => c.code === formCountryCode);
     if (matchedCountry?.isBlocked) {
-      triggerToast('error', `차단 대상 법역 가입 불가: ${matchedCountry.name} 국가 번호는 국제 규제 및 당사 규정에 의해 회원 영구 원장에 등록될 수 없습니다.`);
+      triggerToast('error', `Sanctioned Jurisdiction: Subscribers from ${matchedCountry.name} are blocked by international regulations and cannot be registered in the core database ledger.`);
       return;
     }
 
@@ -180,7 +180,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
     });
 
     setEditingSub(null);
-    triggerToast('success', `${formName} 구독자의 데이터베이스 연동 정보가 업데이트되었습니다.`);
+    triggerToast('success', `Subscription record for ${formName} has been updated in the core database ledger.`);
   };
 
   // Filter subscribers list
@@ -222,9 +222,9 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
             </span>
             <span className="text-xs font-semibold uppercase text-emerald-400 font-mono tracking-wider">Futua Simula Core Vault</span>
           </div>
-          <h3 className="text-xl font-bold text-white mt-1">Futua Simula 구독자 영구 원장 데이터베이스</h3>
+          <h3 className="text-xl font-bold text-white mt-1">Futua Simula Subscription Database Registry</h3>
           <p className="text-slate-400 text-xs mt-1">
-            BSC 기저 스마트 컨트랙트 결제와 실시간 동기화되는 구독자 데이터베이스(DB) 및 회원 관리 환경입니다.
+            Subscriber registration repository synchronized with BSC off-chain simulated contracts.
           </p>
         </div>
 
@@ -235,16 +235,16 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
             className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-500/10"
           >
             <Plus size={14} />
-            신규 구독자 추가
+            Register Subscriber
           </button>
           <button
             id="btn-reset-subscribers-db"
             onClick={onResetSubscribers}
             className="px-3 py-2 bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-400 hover:text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-            title="기록 초기화 후 시드 데이터 로드"
+            title="Reset history and reload seed database"
           >
             <RotateCcw size={12} />
-            DB 시드 재설정
+            Seed Database
           </button>
         </div>
       </div>
@@ -253,7 +253,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-850 flex items-center justify-between">
           <div>
-            <span className="text-slate-500 text-4xs uppercase tracking-wider font-bold font-mono">가입 계정 수</span>
+            <span className="text-slate-500 text-4xs uppercase tracking-wider font-bold font-mono">Total Registrants</span>
             <span className="block text-2xl font-black text-white mt-0.5">{totalCount} accounts</span>
           </div>
           <User className="text-blue-500 shrink-0" size={24} />
@@ -261,7 +261,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-850 flex items-center justify-between bg-gradient-to-r from-emerald-950/5 via-slate-950 to-slate-950/5 border-emerald-900/10">
           <div>
-            <span className="text-slate-500 text-4xs uppercase tracking-wider font-bold font-mono">활성화 원장</span>
+            <span className="text-slate-500 text-4xs uppercase tracking-wider font-bold font-mono">Active Licenses</span>
             <span className="block text-2xl font-black text-emerald-400 mt-0.5">{activeCount} active</span>
           </div>
           <CheckCircle2 className="text-emerald-500 shrink-0" size={24} />
@@ -269,7 +269,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-850 flex items-center justify-between">
           <div>
-            <span className="text-slate-500 text-4xs uppercase tracking-wider font-bold font-mono">만료 환원 원장</span>
+            <span className="text-slate-500 text-4xs uppercase tracking-wider font-bold font-mono">Expired Licenses</span>
             <span className="block text-2xl font-black text-red-400 mt-0.5">{expiredCount} expired</span>
           </div>
           <XCircle className="text-red-500 shrink-0" size={24} />
@@ -277,7 +277,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-850 flex items-center justify-between bg-gradient-to-r from-teal-950/5 via-slate-950 to-slate-950/5 border-teal-900/10">
           <div>
-            <span className="text-slate-500 text-4xs uppercase tracking-wider font-bold font-mono">시뮬레이션 월예상매출</span>
+            <span className="text-slate-500 text-4xs uppercase tracking-wider font-bold font-mono">Estimated MRR (Simulated)</span>
             <span className="block text-2xl font-extrabold text-teal-400 font-mono mt-0.5">${simulatedRevenue.toFixed(1)} <span className="text-xs text-slate-500 font-sans font-medium">USDT</span></span>
           </div>
           <DollarSign className="text-teal-400 shrink-0" size={24} />
@@ -293,7 +293,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
             id="search-subscribers-input"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="이름, 이메일, 구독자 ID 검색..."
+            placeholder="Search name, e-mail, subscriber ID..."
             className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 pl-9 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans"
           />
           <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
@@ -303,7 +303,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
         <div className="flex items-center gap-2 w-full md:w-auto">
           <span className="text-slate-500 text-xs flex items-center gap-1 shrink-0">
             <Filter size={12} />
-            필터링:
+            Filter Status:
           </span>
           <div className="flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 w-full md:w-auto overflow-hidden">
             {(['ALL', 'ACTIVE', 'EXPIRED', 'NONE'] as const).map((filter) => (
@@ -317,7 +317,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
-                {filter === 'ALL' ? '전체' : filter === 'ACTIVE' ? '활성' : filter === 'EXPIRED' ? '만료' : '없음'}
+                {filter === 'ALL' ? 'All' : filter === 'ACTIVE' ? 'Active' : filter === 'EXPIRED' ? 'Expired' : 'None'}
               </button>
             ))}
           </div>
@@ -329,22 +329,22 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
         <table className="w-full text-left border-collapse" id="subscribers-core-table">
           <thead>
             <tr className="border-b border-slate-850 bg-slate-950/60 text-slate-400 text-4xs uppercase tracking-wider font-mono">
-              <th className="py-3 pl-4">구독자 ID</th>
-              <th className="py-3">이름 / 이메일</th>
-              <th className="py-3 text-slate-400">전화번호</th>
-              <th className="py-3">이용 서비스</th>
-              <th className="py-3 font-sans">구독 시작일</th>
-              <th className="py-3 font-sans">구독 만료일</th>
-              <th className="py-3">USDT 결제 주소</th>
-              <th className="py-3">상태</th>
-              <th className="py-3 pr-4 text-right">조종</th>
+              <th className="py-3 pl-4">Subscriber ID</th>
+              <th className="py-3">Name / E-mail</th>
+              <th className="py-3 text-slate-400">Phone Code</th>
+              <th className="py-3">Service Tier</th>
+              <th className="py-3 font-sans">License Start</th>
+              <th className="py-3 font-sans">License Expiry</th>
+              <th className="py-3">BSC Wallet Address</th>
+              <th className="py-3">Status</th>
+              <th className="py-3 pr-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredSubscribers.length === 0 ? (
               <tr>
                 <td colSpan={9} className="text-center py-12 text-slate-500 text-xs leading-relaxed font-sans">
-                  일치하는 원장 구독자 검색 레코드가 존재하지 않습니다. <br />
+                  No matching subscriber records found in the database registry.<br />
                   <span className="text-3xs text-slate-600 font-mono mt-1 inline-block">Query term: "{searchTerm || 'None'}" | Filter: {statusFilter}</span>
                 </td>
               </tr>
@@ -382,7 +382,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
                     <td className="py-3.5">
                       {sub.phoneNumber ? (
-                        <div className="flex items-center gap-1 select-all cursor-pointer" title="클릭시 원천 선택 가능">
+                        <div className="flex items-center gap-1 select-all cursor-pointer" title="Click to select number">
                           {(() => {
                             const codePart = sub.phoneNumber.split(' ')[0] || '';
                             const localPart = sub.phoneNumber.split(' ').slice(1).join(' ') || '';
@@ -398,13 +398,13 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                           })()}
                         </div>
                       ) : (
-                        <span className="text-slate-600 font-sans text-3xs italic">미구비</span>
+                        <span className="text-slate-600 font-sans text-3xs italic">Not Set</span>
                       )}
                     </td>
 
                     <td className="py-3.5">
                       <span className="text-slate-300 font-bold">
-                        {planDetails ? planDetails.name.split(' ')[2] || planDetails.name : '무료 체험 모드'}
+                        {planDetails ? planDetails.name.split(' ')[2] || planDetails.name : 'Free Trial'}
                       </span>
                     </td>
 
@@ -435,7 +435,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                         'bg-slate-800 text-slate-400'
                       }`}>
                         <span className={`h-1 w-1 rounded-full ${sub.status === 'ACTIVE' ? 'bg-emerald-400 animate-ping' : sub.status === 'EXPIRED' ? 'bg-red-400' : 'bg-slate-400'}`} />
-                        {sub.status === 'ACTIVE' ? '활성' : sub.status === 'EXPIRED' ? '만료됨' : '없음'}
+                        {sub.status === 'ACTIVE' ? 'Active' : sub.status === 'EXPIRED' ? 'Expired' : 'None'}
                       </span>
                     </td>
 
@@ -445,20 +445,20 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                           id={`btn-edit-sub-${sub.id}`}
                           onClick={() => openEditModal(sub)}
                           className="p-1 hover:bg-slate-900 text-slate-400 hover:text-white rounded transition cursor-pointer"
-                          title="수정"
+                          title="Edit"
                         >
                           <Edit2 size={12} />
                         </button>
                         <button
                           id={`btn-delete-sub-${sub.id}`}
                           onClick={() => {
-                            if (window.confirm(`${sub.name} 구독정보를 원장 데이터베이스에서 영구 히스토리 삭제하시겠습니까?`)) {
+                            if (window.confirm(`Are you absolutely sure you want to permanently delete the subscriber record for ${sub.name}?`)) {
                               onDeleteSubscriber(sub.id);
-                              triggerToast('info', '구독자 정보가 데이터베이스에서 제거 완료되었습니다.');
+                              triggerToast('info', 'Subscriber record was removed from the database registry.');
                             }
                           }}
                           className="p-1 hover:bg-red-950 hover:text-red-400 text-slate-600 rounded transition cursor-pointer"
-                          title="영구 삭제"
+                          title="Delete Permanently"
                           disabled={sub.email === 'savrina25x@gmail.com'} // Protect user profile
                         >
                           <Trash2 size={12} className={sub.email === 'savrina25x@gmail.com' ? 'opacity-20 cursor-not-allowed' : ''} />
@@ -481,7 +481,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
             <div className="bg-slate-950 px-6 py-4 border-b border-slate-900 flex items-center justify-between">
               <h4 className="text-sm font-extrabold text-white flex items-center gap-1.5">
                 <Database size={15} className="text-emerald-400" />
-                <span>{editingSub ? `구독자 원장 수정 (${editingSub.id})` : '신규 구독지 지갑/회원 등록'}</span>
+                <span>{editingSub ? `Modify Subscriber Ledger (${editingSub.id})` : 'Register New Wallet / Subscriber'}</span>
               </h4>
               <button
                 id="btn-close-subscribers-modal"
@@ -491,23 +491,23 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                 }}
                 className="text-slate-400 hover:text-white font-bold text-sm cursor-pointer"
               >
-                취소
+                Cancel
               </button>
             </div>
 
             {/* Modal Content */}
-            <form onSubmit={editingSub ? handleEditSubmit : handleAddSubmit} className="p-6 space-y-4">
+            <form onSubmit={editingSub ? handleEditSubmit : handleAddSubmit} className="p-6 space-y-4 font-sans">
               <div className="grid grid-cols-2 gap-4">
                 {/* Name */}
                 <div className="space-y-1 col-span-1">
-                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">이름</label>
+                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Subscriber Name</label>
                   <div className="relative">
                     <input
                       type="text"
                       id="subform-name-input"
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
-                      placeholder="홍길동"
+                      placeholder="e.g. Jane Doe"
                       className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 pl-8 text-xs text-white focus:outline-none focus:border-emerald-500"
                       required
                     />
@@ -517,7 +517,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
                 {/* Email */}
                 <div className="space-y-1 col-span-1">
-                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">이메일 주소</label>
+                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">E-mail Address</label>
                   <div className="relative">
                     <input
                       type="email"
@@ -536,14 +536,14 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 {/* Plan */}
                 <div className="space-y-1 col-span-1">
-                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">구독 요금 플랜</label>
+                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Subscription Tier</label>
                   <select
                     id="subform-plan-select"
                     value={formPlan}
                     onChange={(e) => handlePlanChange(e.target.value as SubscriptionDuration, formStart)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 font-sans"
                   >
-                    <option value="FREE">Free Trial 기본 모드</option>
+                    <option value="FREE">Free Trial Basic Mode</option>
                     {SUBSCRIPTION_PLANS.map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -552,7 +552,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
                 {/* Status */}
                 <div className="space-y-1 col-span-1">
-                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">구독 원장 상태</label>
+                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Subscription Status</label>
                   <div className="flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 overflow-hidden h-7.5 items-center">
                     {(['ACTIVE', 'EXPIRED', 'NONE'] as const).map((status) => (
                       <button
@@ -568,7 +568,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                             : 'text-slate-500 hover:text-slate-300'
                         }`}
                       >
-                        {status === 'ACTIVE' ? '활성' : status === 'EXPIRED' ? '만료' : '없음'}
+                        {status === 'ACTIVE' ? 'Active' : status === 'EXPIRED' ? 'Expired' : 'None'}
                       </button>
                     ))}
                   </div>
@@ -578,7 +578,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 {/* Start Date */}
                 <div className="space-y-1 col-span-1">
-                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">구독 시작 설정일</label>
+                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Subscription Start Date</label>
                   <div className="relative">
                     <input
                       type="date"
@@ -593,7 +593,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
                 {/* Expiry Date */}
                 <div className="space-y-1 col-span-1">
-                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">구독 만기 예정일</label>
+                  <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Subscription Expiry Date</label>
                   <div className="relative">
                     <input
                       type="date"
@@ -609,7 +609,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
               {/* Wallet Address */}
               <div className="space-y-1">
-                <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">결제 BSC 지갑 주소 (BEP-20) - 선택</label>
+                <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">BSC Payment Wallet Address (BEP-20) - Optional</label>
                 <div className="relative">
                   <input
                     type="text"
@@ -625,7 +625,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
               {/* Phone Registrator & Country Compliance check */}
               <div className="space-y-1">
-                <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">전화번호 및 국가 정보 (규제 비대상지역)</label>
+                <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Phone Line & Country Code (Jurisdiction Compliance)</label>
                 <div className="flex gap-2">
                   <select
                     id="subform-country"
@@ -635,7 +635,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                   >
                     {ISO_COUNTRIES.map((c) => (
                       <option key={c.code} value={c.code} className={c.isBlocked ? 'text-red-500 font-bold' : ''}>
-                        {c.flag} {c.code} - {c.name.split(' (')[0]} {c.isBlocked ? ' [차단규제지역]' : ''}
+                        {c.flag} {c.code} - {c.name.split(' (')[0]} {c.isBlocked ? ' [SANCTIONED AREA]' : ''}
                       </option>
                     ))}
                   </select>
@@ -645,7 +645,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                       id="subform-phone-local-input"
                       value={formPhoneLocal}
                       onChange={(e) => setFormPhoneLocal(e.target.value)}
-                      placeholder="010-1234-5678"
+                      placeholder="e.g. 555-0199"
                       className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 pl-8 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                     />
                     <Phone size={12} className="absolute left-2.5 top-2.5 text-slate-500" />
@@ -653,26 +653,26 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                 </div>
                 {ISO_COUNTRIES.find(c => c.code === formCountryCode)?.isBlocked && (
                   <div className="text-red-400 text-5xs uppercase font-sans animate-pulse mt-1 bg-red-950/30 p-1.5 rounded border border-red-900/20 leading-relaxed font-semibold">
-                    🚫 저장 불가: {ISO_COUNTRIES.find(c => c.code === formCountryCode)?.name}은 국제 조약 차단 대상 규제역(16개 국가 중 하나)으로 약정상 등록 불가 처분됩니다.
+                    🚫 Blocked Territory: {ISO_COUNTRIES.find(c => c.code === formCountryCode)?.name} is an active OFAC/international sanction region. Internal rules restrict and forbid saving off-chain subscriber ledger details for safety compliance keys.
                   </div>
                 )}
               </div>
 
               {/* Notes */}
               <div className="space-y-1">
-                <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">특이사항 (Notes)</label>
+                <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Special Requirements / Notes</label>
                 <textarea
                   id="subform-notes-textarea"
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="예: VIP 오프체인 계약 갱신 요청"
+                  placeholder="e.g. Corporate VIP account upgrade requested"
                   rows={2}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 leading-normal"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 leading-normal font-sans"
                 />
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex justify-end gap-2 text-xs pt-4 border-t border-slate-900">
+              <div className="flex justify-end gap-2 text-xs pt-4 border-t border-slate-900 font-sans">
                 <button
                   type="button"
                   id="btn-subform-cancel"
@@ -682,7 +682,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                   }}
                   className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-xl cursor-pointer"
                 >
-                  취소
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -690,7 +690,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                   className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl cursor-pointer flex items-center gap-1.5"
                 >
                   <Save size={13} />
-                  {editingSub ? '변경 원장 갱신' : '신규 지갑 등록'}
+                  {editingSub ? 'Update Ledger Record' : 'Register New Subscriber'}
                 </button>
               </div>
             </form>

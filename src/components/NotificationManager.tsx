@@ -55,8 +55,8 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
         type: 'ACTIVATION_SUCCESS',
         channel: 'EMAIL',
         recipient: 'savrina25x@gmail.com',
-        subject: '[✓ 구독 완료] Futua Simula 프리미엄 라이선스 활성화 성공',
-        content: '안녕하세요, Futua Simula 구독자님. 성공적으로 블록체인 스마트 결제 서명이 수락되어, 프리미엄 거래 터미널 구독 라이선스가 활성화되었습니다.',
+        subject: '[✓ Subscription Complete] Futua Simula Premium License Successfully Activated',
+        content: 'Hello, Futua Simula subscriber. Your blockchain payment authorization has been accepted, and your premium subscription license has been successfully activated.',
         status: 'SENT',
         dbSynced: true,
       },
@@ -94,7 +94,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
       },
     };
     setTemplates(updated);
-    triggerToast('success', '알림 이메일/푸시 템플릿이 성공적으로 저장 및 무트가드에 반영되었습니다.');
+    triggerToast('success', 'Notification templates successfully saved and updated.');
   };
 
   // Change active editing tab
@@ -132,10 +132,10 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
       .replace(/{EXPIRY_DATE}/g, dateFormatted);
   };
 
-  // Simulation 1: Simulate "Subscription Expiring Soon" (만료 예정 알림)
+  // Simulation 1: Simulate "Subscription Expiring Soon" (Expiry Reminder Notification)
   const simulateExpiryWarning = () => {
     setIsSendingSim(true);
-    triggerToast('info', '구독 만료 예정(3일 전) 자동 알림 배치 크론탭을 가동합니다...');
+    triggerToast('info', 'Executing automatic reminder dispatch batch cron (3 days out)...');
 
     setTimeout(() => {
       const parsedSubject = parseTemplateVariables(templates.EXPIRY_WARNING.subject);
@@ -167,31 +167,31 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
           type: 'EXPIRY_WARNING',
           channel: 'PUSH',
           recipient: wallet.address || '0x0000...0000',
-          subject: '[푸시 알림 수신]',
+          subject: '[Push Received]',
           content: parsedPush,
           status: 'SENT',
           dbSynced: true,
         });
-        showPushToast('⚠️ [Futua Simula] 구독 만료 임박', parsedPush);
+        showPushToast('⚠️ [Futua Simula] Expiry Warning Alert', parsedPush);
       }
 
       saveLogs([...nextLogs, ...logs]);
       setIsSendingSim(false);
-      triggerToast('success', '만료 대기 예정 알림이 Netlify DB 및 해당 구독자 수신 채널로 안전 발송 완료되었습니다.');
+      triggerToast('success', 'Expiry warnings successfully dispatched to Netlify DB and subscriber channels.');
     }, 1200);
   };
 
-  // Simulation 2: Simulate "Payment Failed Alert" (결제 실패 알림)
+  // Simulation 2: Simulate "Payment Failed Alert"
   const simulatePaymentFailure = () => {
     setIsSendingSim(true);
-    triggerToast('info', '스마트 컨트랙트 자동 결제 검사 중...');
+    triggerToast('info', 'Verifying smart contract automated payment status...');
 
     setTimeout(() => {
       // For failure, we populate transactions as failed in ledger too!
       const failedTxHash = '0xfc41498de1d8cf' + Math.floor(Math.random() * 10000000000).toString(16) + 'eff12';
       
       // Calculate missing funds or failed details
-      onAddTransaction(failedTxHash, 'USDT 자동 결제 갱신 차감 실패', -activePlan.priceTotal, 'FAILED');
+      onAddTransaction(failedTxHash, 'Automated USDT Subscription Renewal Failed', -activePlan.priceTotal, 'FAILED');
       
       // Update parent subscription to expired/none to trigger real system state change
       onSimulatePaymentFailureStatus();
@@ -223,24 +223,24 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
           type: 'PAYMENT_FAILED',
           channel: 'PUSH',
           recipient: wallet.address || '0x0000...0000',
-          subject: '[푸시 알림 수신]',
+          subject: '[Push Received]',
           content: parsedPush,
           status: 'SENT',
           dbSynced: true,
         });
-        showPushToast('🚫 [Futua Simula] 갱신 결제 실패 경고', parsedPush);
+        showPushToast('🚫 [Futua Simula] Automated Renewal Failed', parsedPush);
       }
 
       saveLogs([...nextLogs, ...logs]);
       setIsSendingSim(false);
-      triggerToast('error', '결제 한도 예외로 인한 구독 실패 경고 알림이 Netlify DB에 동기화 발송되었습니다.');
+      triggerToast('error', 'Renewal payment failed alert successfully synchronised and logged in major ledger.');
     }, 1500);
   };
 
   // Clear log
   const handleClearLogs = () => {
     saveLogs([]);
-    triggerToast('info', '알림 수발신 전송 기록 원장이 초기화되었습니다.');
+    triggerToast('info', 'Notification log history successfully cleared.');
   };
 
   return (
@@ -256,9 +256,9 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
             </span>
             <span className="text-xs font-semibold uppercase text-indigo-400 font-mono">Netlify Alerts Engine</span>
           </div>
-          <h3 className="text-xl font-bold text-white mt-1">구독 만료 및 정산 실패 자동 알림 조종 패널</h3>
+          <h3 className="text-xl font-bold text-white mt-1">Subscription Expiry & Renewal Alerts Control Panel</h3>
           <p className="text-slate-400 text-xs mt-1">
-            BSC 기저 결제 상태에 맞추어 **구독 만료 예정자** 및 **잔고 부족 결제 실패자**에게 이메일/푸쉬 알림을 실시간 자동 발송하는 백엔드 디스패치 모사 콘솔입니다.
+            Real-time simulated backend console to automatically dispatch email and push notifications to subscribers upon expiry warnings and failed renewals.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -277,12 +277,12 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
           <div className="bg-slate-950/70 p-4.5 rounded-xl border border-slate-850 space-y-4">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
               <Settings size={13} className="text-slate-400" />
-              <span>알림 수발신 연결 구성</span>
+              <span>Notification Destination Config</span>
             </h4>
 
             {/* Email Address */}
             <div className="space-y-1">
-              <label className="text-slate-500 text-4xs uppercase tracking-wider font-bold">수신 이메일 주소</label>
+              <label className="text-slate-500 text-4xs uppercase tracking-wider font-bold">Target E-mail Recipient</label>
               <div className="relative">
                 <input
                   type="email"
@@ -295,7 +295,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                 <Mail size={12} className="absolute left-2.5 top-2.5 text-slate-500" />
               </div>
               <p className="text-slate-500 text-4xs leading-normal">
-                블록체인 모의 계약 갱신 예정/실패 시 이메일 영수증이 해당 주소로 모사 발송됩니다.
+                Email receipts will be dispatched to this address upon simulated subscription renewal or checkout failures.
               </p>
             </div>
 
@@ -304,7 +304,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Mail size={14} className="text-indigo-400" />
-                  <span className="text-xs text-slate-300">이메일(E-mail) 발송 허용</span>
+                  <span className="text-xs text-slate-300">Enable E-mail Notifications</span>
                 </div>
                 <input
                   type="checkbox"
@@ -318,7 +318,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Bell size={14} className="text-teal-400" />
-                  <span className="text-xs text-slate-300">푸시(Push Overlay) 알림 허용</span>
+                  <span className="text-xs text-slate-300">Enable Screen Push Notifications</span>
                 </div>
                 <input
                   type="checkbox"
@@ -332,16 +332,16 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
 
             {/* Days Trigger Option */}
             <div className="space-y-1.5 pt-2 border-t border-slate-900">
-              <label className="text-slate-500 text-4xs uppercase tracking-wider font-bold">만료 안내 람다 배치 스케줄</label>
+              <label className="text-slate-500 text-4xs uppercase tracking-wider font-bold">Renewal Reminder Lambda Batch Schedule</label>
               <select
                 id="select-expiry-days"
                 value={setting.daysBeforeExpiry}
                 onChange={(e) => setSetting({ ...setting, daysBeforeExpiry: parseInt(e.target.value) })}
                 className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
               >
-                <option value={3}>구독 라이선스 만료 3일 전 (권장)</option>
-                <option value={7}>구독 라이선스 만료 7일 전</option>
-                <option value={1}>구독 라이선스 만료 1일 전 (긴급)</option>
+                <option value={3}>3 days before license expiry (Recommended)</option>
+                <option value={7}>7 days before license expiry</option>
+                <option value={1}>1 day before license expiry (Urgent)</option>
               </select>
             </div>
           </div>
@@ -350,11 +350,11 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
           <div className="bg-slate-950/70 p-4.5 rounded-xl border border-slate-850 space-y-4">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
               <Play size={13} className="text-yellow-500" />
-              <span>자동 알림 배치 수동 트리거</span>
+              <span>Automated Reminder Manual Triggers</span>
             </h4>
 
             <p className="text-slate-400 text-3xs leading-relaxed">
-              블록체인 가상 유인 만료 블록 및 스마트 정산 결제 실패 케이스를 가상 즉시 발생시켜 알림 엔진의 메일/푸시 자동 서명을 유도합니다.
+              Simulate low balance renewal failures or block expiry times to trigger automated warning dispatches immediately.
             </p>
 
             <div className="space-y-2.5">
@@ -365,7 +365,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                 className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-600 font-bold text-xs rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer text-white disabled:opacity-50"
               >
                 <RefreshCw size={13} className={isSendingSim ? 'animate-spin' : ''} />
-                만료 임박 알림 수동 배치 실행 (만료 {setting.daysBeforeExpiry}일 전)
+                Trigger Expiry Warning ({setting.daysBeforeExpiry} days before)
               </button>
 
               <button
@@ -375,7 +375,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                 className="w-full py-2.5 bg-red-950/55 hover:bg-red-900/40 font-bold text-xs text-red-400 border border-red-900/40 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <ShieldAlert size={13} />
-                결제 갱신 실패 강제 상황 재현 (경고 발송)
+                Force Failed Renewal Simulation (Send Warnings)
               </button>
             </div>
           </div>
@@ -396,7 +396,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                   : 'text-slate-500 hover:text-slate-300'
               }`}
             >
-              <span>만료 예정 안내</span>
+              <span>Expiry Reminder</span>
               <span className="text-4xs bg-indigo-500/10 text-indigo-400 px-1 py-0.2 rounded font-mono">Auto</span>
             </button>
 
@@ -409,7 +409,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                   : 'text-slate-500 hover:text-slate-300'
               }`}
             >
-              <span>결제 실패 경고</span>
+              <span>Payment Failed Alert</span>
               <span className="text-4xs bg-red-500/10 text-red-400 px-1 py-0.2 rounded font-mono">Alert</span>
             </button>
 
@@ -422,7 +422,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                   : 'text-slate-500 hover:text-slate-300'
               }`}
             >
-              <span>구독 체결 확인</span>
+              <span>Receipt Confirmation</span>
               <span className="text-4xs bg-emerald-500/10 text-emerald-400 px-1 py-0.2 rounded font-mono">Receipt</span>
             </button>
           </div>
@@ -432,14 +432,14 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-3xs text-slate-500 font-mono flex items-center gap-1">
                 <FileText size={11} />
-                <span>선택된 템플릿 실시간 치환 에디터</span>
+                <span>Selected Template Live Variable Substitution Editor</span>
               </span>
-              <span className="text-4xs text-slate-500 font-mono">사용 가능 변수: {'{PRICE}'}, {'{PLAN_NAME}'}, {'{TX_HASH}'}, {'{EXPIRY_DATE}'}</span>
+              <span className="text-4xs text-slate-500 font-mono">Available tags: {'{PRICE}'}, {'{PLAN_NAME}'}, {'{TX_HASH}'}, {'{EXPIRY_DATE}'}</span>
             </div>
 
             {/* Subject */}
             <div className="space-y-1">
-              <label className="text-slate-500 text-4xs uppercase font-extrabold tracking-wide block">알림/이메일 제목</label>
+              <label className="text-slate-500 text-4xs uppercase font-extrabold tracking-wide block">Subject Title</label>
               <input
                 type="text"
                 id="template-subject-input"
@@ -451,7 +451,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
 
             {/* Email Body */}
             <div className="space-y-1">
-              <label className="text-slate-500 text-4xs uppercase font-extrabold tracking-wide block">이메일 본문 내용 (HTML/마크다운)</label>
+              <label className="text-slate-500 text-4xs uppercase font-extrabold tracking-wide block">Email Content Body (HTML/Markdown)</label>
               <textarea
                 id="template-emailbody-textarea"
                 rows={5}
@@ -463,7 +463,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
 
             {/* Push Message Body */}
             <div className="space-y-1">
-              <label className="text-slate-500 text-4xs uppercase font-extrabold tracking-wide block">화면 실시간 푸쉬 문구 (짧고 간결하게)</label>
+              <label className="text-slate-500 text-4xs uppercase font-extrabold tracking-wide block">Screen Push Message (Short & Concise)</label>
               <input
                 type="text"
                 id="template-pushbody-input"
@@ -475,14 +475,14 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
 
             {/* Control buttons */}
             <div className="flex justify-between items-center pt-2 border-t border-slate-900">
-              <span className="text-4xs text-slate-500">※ 변경 사항은 현 브라우저의 모의 호스팅 가상 원장에 저장 보존됩니다.</span>
+              <span className="text-4xs text-slate-500">* Changes are stored and persisted securely in your local browser sandbox ledger.</span>
               <button
                 id="btn-save-template"
                 onClick={handleSaveTemplate}
                 className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs cursor-pointer transition flex items-center gap-1"
               >
                 <CheckCircle size={12} />
-                저장 및 자동 알림 업데이트
+                Save Template Changes
               </button>
             </div>
           </div>
@@ -495,10 +495,10 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
           <div>
             <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
               <Database size={13} className="text-indigo-400" />
-              <span>알림 비동기 자동 발송 로그 (Netlify Database Record)</span>
+              <span>Asynchronous Dispatch Ledger (Netlify Database Record)</span>
             </h4>
             <p className="text-slate-500 text-3xs mt-0.5">
-              스마트 결제 갱신 크론이 백엔드 전송 서버와 동기화 발송을 마친 누적 데이터 히스토리 내역입니다.
+              Historical dispatch records synchronized by the automated payment cron with the serverless backend.
             </p>
           </div>
           {logs.length > 0 && (
@@ -508,7 +508,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
               className="px-3 py-1 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white rounded border border-slate-850 text-3xs font-semibold cursor-pointer transition flex items-center gap-1"
             >
               <Trash2 size={11} />
-              로그 전체 초기화
+              Clear Dispatched Logs
             </button>
           )}
         </div>
@@ -517,20 +517,20 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
         <div className="overflow-x-auto">
           {logs.length === 0 ? (
             <div className="text-center py-6 text-slate-500 text-xs">
-              발송된 알림 데이터베이스 내역이 비어 있습니다. 왼쪽 트리거 버튼을 눌러 시뮬레이션을 수행해 주십시오.
+              Historical notification log is empty. Try triggering simulated dispatches from the sidebar command desk.
             </div>
           ) : (
             <table className="w-full text-left font-mono text-2xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-850 text-slate-500 text-4xs uppercase">
                   <th className="pb-2.5 pl-2">ID</th>
-                  <th className="pb-2.5">시간</th>
-                  <th className="pb-2.5">수신 타겟</th>
-                  <th className="pb-2.5">종류</th>
-                  <th className="pb-2.5">발송 채널</th>
-                  <th className="pb-2.5">내용 요약</th>
-                  <th className="pb-2.5">상태</th>
-                  <th className="pb-2.5 pr-2 text-right">조회</th>
+                  <th className="pb-2.5">Time</th>
+                  <th className="pb-2.5">Recipient</th>
+                  <th className="pb-2.5">Type</th>
+                  <th className="pb-2.5">Channel</th>
+                  <th className="pb-2.5">Subject Summary</th>
+                  <th className="pb-2.5">Status</th>
+                  <th className="pb-2.5 pr-2 text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -545,8 +545,8 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                         log.type === 'PAYMENT_FAILED' ? 'bg-red-500/10 text-red-400 font-extrabold' :
                         'bg-emerald-500/10 text-emerald-400'
                       }`}>
-                        {log.type === 'EXPIRY_WARNING' ? '만료 경고' :
-                         log.type === 'PAYMENT_FAILED' ? '결제 실패' : '수납 확인'}
+                        {log.type === 'EXPIRY_WARNING' ? 'Expiry Warning' :
+                         log.type === 'PAYMENT_FAILED' ? 'Failed Payment' : 'Receipt Paid'}
                       </span>
                     </td>
                     <td className="py-2.5">
@@ -568,7 +568,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                         onClick={() => setSelectedLogDetail(log)}
                         className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded cursor-pointer text-3xs"
                       >
-                        상세보기
+                        Details
                       </button>
                     </td>
                   </tr>
@@ -582,12 +582,12 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
       {/* Individual Dispatch Log Viewer Modal Card */}
       {selectedLogDetail && (
         <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 backdrop-blur-sm" id="notification-modal">
-          <div className="bg-[#0e1626] border border-indigo-500/25 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+          <div className="bg-[#0e1626] border border-indigo-500/25 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 font-sans">
             <div className="bg-slate-950 px-6 py-4.5 border-b border-slate-900 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {selectedLogDetail.channel === 'EMAIL' ? <Mail size={16} className="text-indigo-400" /> : <Bell size={16} className="text-teal-400" />}
                 <span className="text-xs font-black tracking-wide text-white uppercase font-sans">
-                  데이터베이스 전산 원장 상세 대조 ({selectedLogDetail.id})
+                  Database Ledger Reconciliation ({selectedLogDetail.id})
                 </span>
               </div>
               <button
@@ -595,28 +595,28 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                 onClick={() => setSelectedLogDetail(null)}
                 className="text-slate-400 hover:text-white font-bold text-sm cursor-pointer"
               >
-                닫기
+                Close
               </button>
             </div>
 
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between text-2xs font-mono pb-2 border-b border-slate-900 text-slate-500">
-                <span>발송 일시: {selectedLogDetail.timestamp}</span>
+                <span>Dispatched Time: {selectedLogDetail.timestamp}</span>
                 <span className="text-emerald-400 font-bold">&#10003; Netlify DB Sync Verified</span>
               </div>
 
               <div className="space-y-1.5 text-xs text-slate-300">
                 <div className="flex text-2xs font-mono">
-                  <span className="text-slate-500 w-20">수신 대상자:</span>
+                  <span className="text-slate-500 w-20">Recipient:</span>
                   <span className="text-amber-400 truncate">{selectedLogDetail.recipient}</span>
                 </div>
                 <div className="flex text-2xs font-mono">
-                  <span className="text-slate-500 w-20">요금제 대상:</span>
+                  <span className="text-slate-500 w-20">Plan Tier:</span>
                   <span className="text-slate-200">{activePlan.name}</span>
                 </div>
                 {selectedLogDetail.channel === 'EMAIL' && (
                   <div className="flex text-2xs font-mono">
-                    <span className="text-slate-500 w-20">메일 제목:</span>
+                    <span className="text-slate-500 w-20">E-mail Subject:</span>
                     <span className="text-white font-bold">{selectedLogDetail.subject}</span>
                   </div>
                 )}
@@ -624,7 +624,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
 
               {/* Box container presenting rendered mock format */}
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-900 max-h-[220px] overflow-y-auto">
-                <span className="text-3xs text-slate-500 block uppercase font-mono mb-2">[수신 디바이스 뷰어 화면]</span>
+                <span className="text-3xs text-slate-500 block uppercase font-mono mb-2">[Sandbox Recipient Device Viewport]</span>
                 {selectedLogDetail.channel === 'EMAIL' ? (
                   <div className="text-xs text-slate-300 whitespace-pre-wrap font-sans font-normal leading-relaxed">
                     {selectedLogDetail.content}
@@ -644,9 +644,9 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
                 <button
                   id="btn-close-notif-dialog"
                   onClick={() => setSelectedLogDetail(null)}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold cursor-pointer"
+                  className="px-5 py-2 bg-indigo-650 hover:bg-indigo-600 text-white rounded-lg text-xs font-bold cursor-pointer"
                 >
-                  확인 완료
+                  Close Dialog
                 </button>
               </div>
             </div>
@@ -663,7 +663,7 @@ export const NotificationManager: React.FC<NotificationManagerProps> = ({
             </span>
             <div className="flex-grow space-y-1">
               <div className="flex justify-between items-center">
-                <span className="text-3xs font-black tracking-wide text-teal-400 uppercase font-mono">가상 푸시 수신 (Netlify Sync)</span>
+                <span className="text-3xs font-black tracking-wide text-teal-400 uppercase font-mono">Simulated Push Alert (Netlify Synced)</span>
                 <span className="text-4xs text-slate-500">Just now</span>
               </div>
               <h5 className="text-xs font-bold text-white leading-snug">{activePushAlert.title}</h5>
