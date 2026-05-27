@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Check, ArrowRight, ShieldCheck, Cpu, Database, Clock, Loader2, RefreshCw } from 'lucide-react';
 import { SubscriptionPlan, SubscriptionDuration, WalletState, UserSubscription } from '../types';
-import { SUBSCRIPTION_PLANS, TREASURY_WALLET, BSC_USDT_CONTRACT } from '../data';
+import { SUBSCRIPTION_PLANS, TREASURY_WALLET, BSC_USDT_CONTRACT, ISO_COUNTRIES } from '../data';
 
 interface SubscriptionTiersProps {
   plans: SubscriptionPlan[];
   activeSubscription: UserSubscription;
   wallet: WalletState;
-  onSubscribe: (planId: SubscriptionDuration, txHash: string, userBnbGasSpent: number) => void;
+  onSubscribe: (planId: SubscriptionDuration, txHash: string, userBnbGasSpent: number, registrant?: { name: string; email: string; phoneNumber?: string }) => void;
   onAddTransaction: (hash: string, action: string, amount: number, status: 'SUCCESS' | 'FAILED') => void;
   onShowConnectToast: () => void;
 }
@@ -24,6 +24,12 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
   const [checkoutStep, setCheckoutStep] = useState<'IDLE' | 'NETWORK' | 'APPROVE' | 'EXECUTE' | 'CONFIRMING' | 'SUCCESS'>('IDLE');
   const [errorMessage, setErrorMessage] = useState('');
   const [progressPercent, setProgressPercent] = useState(0);
+
+  // Registrant information states to match database records
+  const [registrantName, setRegistrantName] = useState('Savrina User');
+  const [registrantEmail, setRegistrantEmail] = useState('savrina25x@gmail.com');
+  const [registrantCountryCode, setRegistrantCountryCode] = useState('+82');
+  const [registrantPhoneLocal, setRegistrantPhoneLocal] = useState('10-1234-5678');
 
   const handleInitiateCheckout = (plan: SubscriptionPlan) => {
     if (!wallet.isConnected) {
@@ -42,11 +48,21 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
   };
 
   const executeNetworkStep = () => {
+    const matchedCountry = ISO_COUNTRIES.find(c => c.code === registrantCountryCode);
+    if (matchedCountry?.isBlocked) {
+      setErrorMessage(`제재/규제지역(차단국가) 가입 불허: ${matchedCountry.name} 법역은 테러자금 및 자금세탁 방지법에 의거하여 계정 생성이 통제되어 있습니다.`);
+      return;
+    }
     setCheckoutStep('APPROVE');
     setProgressPercent(40);
   };
 
   const executeApproveStep = () => {
+    const matchedCountry = ISO_COUNTRIES.find(c => c.code === registrantCountryCode);
+    if (matchedCountry?.isBlocked) {
+      setErrorMessage(`제재/규제지역(차단국가) 가입 불허: ${matchedCountry.name} 법역은 테러자금 및 자금세탁 방지법에 의거하여 계정 생성이 통제되어 있습니다.`);
+      return;
+    }
     if (wallet.usdtBalance < (checkoutPlan?.priceTotal ?? 0)) {
       setErrorMessage(`지갑 잔액(${wallet.usdtBalance.toFixed(2)} USDT)이 필요 결전 금액인 ${checkoutPlan?.priceTotal} USDT보다 낮습니다. 우측 상단의 'USDT 충전' 수도꼭지를 실행해 주세요!`);
       return;
@@ -56,6 +72,16 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
   };
 
   const executeTransferStep = () => {
+    const matchedCountry = ISO_COUNTRIES.find(c => c.code === registrantCountryCode);
+    if (matchedCountry?.isBlocked) {
+      setErrorMessage(`제재/규제지역(차단국가) 가입 불허: ${matchedCountry.name} 법역은 테러자금 및 자금세탁 방지법에 의거하여 계정 생성이 통제되어 있습니다.`);
+      return;
+    }
+    if (!registrantPhoneLocal.trim()) {
+      setErrorMessage('전화번호 입력을 완료해 주십시오.');
+      return;
+    }
+    
     setCheckoutStep('CONFIRMING');
     setProgressPercent(85);
 
@@ -76,7 +102,11 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
         const gasSpent = 0.0035; // BNB gas spec
 
         // Finalize state changes back to App root
-        onSubscribe(checkoutPlan!.id, txHash, gasSpent);
+        onSubscribe(checkoutPlan!.id, txHash, gasSpent, { 
+          name: registrantName, 
+          email: registrantEmail,
+          phoneNumber: `${registrantCountryCode} ${registrantPhoneLocal}`
+        });
         onAddTransaction(txHash, `Futua Simula ${checkoutPlan!.durationMonths}개월 구독 체결`, -checkoutPlan!.priceTotal, 'SUCCESS');
         
         setCheckoutStep('SUCCESS');
@@ -207,6 +237,82 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Registrant registration form block inside checkout modal */}
+              {checkoutStep !== 'SUCCESS' && (
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-900 mb-4 space-y-3">
+                  <span className="text-slate-400 text-4xs uppercase tracking-wider font-extrabold block font-mono">✍️ 구독 동기화 정보 등록 (DB에 즉시 자동 적재)</span>
+                  
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div className="space-y-1">
+                      <label className="text-slate-500 text-5xs uppercase font-extrabold block">구독자 성함</label>
+                      <input
+                        type="text"
+                        id="chk-registrant-name-input"
+                        value={registrantName}
+                        onChange={(e) => setRegistrantName(e.target.value)}
+                        placeholder="이름 입력"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-slate-500 text-5xs uppercase font-extrabold block">수신 이메일 주소</label>
+                      <input
+                        type="email"
+                        id="chk-registrant-email-input"
+                        value={registrantEmail}
+                        onChange={(e) => setRegistrantEmail(e.target.value)}
+                        placeholder="savrina25x@gmail.com"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Phone Registrator & Country Compliance check */}
+                  <div className="space-y-1 border-t border-slate-900/60 pt-2.5">
+                    <label className="text-slate-500 text-5xs uppercase font-extrabold block">전화번호 및 국가 정보 등록 (규제비대상 한정)</label>
+                    <div className="flex gap-2">
+                      <select
+                        id="chk-registrant-country"
+                        value={registrantCountryCode}
+                        onChange={(e) => {
+                          const pickedVal = e.target.value;
+                          setRegistrantCountryCode(pickedVal);
+                          const countryObj = ISO_COUNTRIES.find(c => c.code === pickedVal);
+                          if (countryObj?.isBlocked) {
+                            setErrorMessage(`규제/차단지역 가입 불가: ${countryObj.name} 지역은 자금세탁 방지(AML) 국제 조약에 따른 차단 대상 규제지역입니다.`);
+                          } else {
+                            setErrorMessage('');
+                          }
+                        }}
+                        className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-sans"
+                      >
+                        {ISO_COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code} className={c.isBlocked ? 'text-red-500 block font-bold' : ''}>
+                            {c.flag} {c.code} - {c.name.split(' (')[0]} {c.isBlocked ? ' [차단규제지역]' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        id="chk-registrant-phone-local"
+                        value={registrantPhoneLocal}
+                        onChange={(e) => setRegistrantPhoneLocal(e.target.value)}
+                        placeholder="010-1234-5678"
+                        className="flex-grow bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                        required
+                      />
+                    </div>
+                    {ISO_COUNTRIES.find(c => c.code === registrantCountryCode)?.isBlocked && (
+                      <div className="text-red-400 text-5xs uppercase font-sans animate-pulse mt-1 bg-red-950/30 p-1.5 rounded border border-red-900/20 leading-relaxed font-semibold">
+                        🚫 계정 개설 중단: 자사 서비스 약정상 쿠바, 이란, 북한, 시리아, 러시아, 우크라이나 등 타겟 16개 제재규제지역 번호는 보정 및 등록이 불가능합니다.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Progress visual bar */}
               <div className="w-full h-1 bg-slate-900 rounded-full mb-6 overflow-hidden">

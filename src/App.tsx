@@ -4,12 +4,16 @@ import { SubscriptionTiers } from './components/SubscriptionTiers';
 import { SubscriptionStatus } from './components/SubscriptionStatus';
 import { TransactionHistory } from './components/TransactionHistory';
 import { NotificationManager } from './components/NotificationManager';
-import { MiniGamesSuite } from './components/MiniGamesSuite';
-import { WalletState, UserSubscription, BSCTransaction, SubscriptionDuration } from './types';
+import { SubscriberManager } from './components/SubscriberManager';
+import { MiniGameZone } from './components/MiniGameZone';
+import { WalletState, UserSubscription, BSCTransaction, SubscriptionDuration, Subscriber } from './types';
 import { SUBSCRIPTION_PLANS, TREASURY_WALLET } from './data';
-import { ShieldAlert, CheckCircle2, XCircle, Zap, Database } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, XCircle, Zap, Database, CreditCard, Users, Gamepad2 } from 'lucide-react';
 
 export default function App() {
+  // Tabs Navigation State
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'SUBSCRIBERS' | 'GAMES'>('DASHBOARD');
+
   // 1. Web3 Wallet State
   const [wallet, setWallet] = useState<WalletState>(() => {
     const saved = localStorage.getItem('FUTUA_SIMULA_WALLET');
@@ -75,7 +79,86 @@ export default function App() {
     ];
   });
 
-  // 4. Toast notifications
+  // 4. Default Seed Generator for Subscribers Database
+  const getSubscribersSeeds = (): Subscriber[] => {
+    const today = new Date();
+    const oneMonthFromNow = new Date();
+    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+
+    const expiredDate = new Date();
+    expiredDate.setMonth(expiredDate.getMonth() - 1);
+    const expiredStartDate = new Date();
+    expiredStartDate.setMonth(expiredStartDate.getMonth() - 2);
+
+    return [
+      {
+        id: 'SUB-38192',
+        name: 'Savrina User',
+        email: 'savrina25x@gmail.com', // Prepopulated safely on target details
+        planId: '12_MONTHS',
+        activatedAt: today.toISOString(),
+        expiresAt: sixMonthsFromNow.toISOString(),
+        status: 'ACTIVE',
+        walletAddress: '0x8390f775485246999027B3197955F781cAAe46F6',
+        phoneNumber: '+82 10-1234-5678',
+        notes: '관리 데스크에 연합 동기화 완료된 프리미엄 VIP 회원 프로필입니다.',
+      },
+      {
+        id: 'SUB-10492',
+        name: '이진아',
+        email: 'jina@futua.io',
+        planId: '1_MONTH',
+        activatedAt: today.toISOString(),
+        expiresAt: oneMonthFromNow.toISOString(),
+        status: 'ACTIVE',
+        walletAddress: '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b',
+        phoneNumber: '+82 10-9876-5432',
+        notes: 'BSC USDT 1달 자동 결제 스마트 컨트랙트 승인 완료.',
+      },
+      {
+        id: 'SUB-99421',
+        name: 'Michael Kim',
+        email: 'mikhail@crypto.com',
+        planId: '6_MONTHS',
+        activatedAt: expiredStartDate.toISOString(),
+        expiresAt: expiredDate.toISOString(),
+        status: 'EXPIRED',
+        walletAddress: '0x9942a782b13098f98ecbe1b2c4e5781a8296a18d',
+        phoneNumber: '+1 202-555-0143',
+        notes: 'USDT 잔액 부족으로 요금제 부과 스케줄이 실효 만료 처리됨.',
+      },
+      {
+        id: 'SUB-23940',
+        name: '최현우',
+        email: 'hwchoi@kakao.com',
+        planId: '6_MONTHS',
+        activatedAt: today.toISOString(),
+        expiresAt: sixMonthsFromNow.toISOString(),
+        status: 'ACTIVE',
+        walletAddress: '0xf781caae46f60db3c9de68d9a2b906be46a78296',
+        phoneNumber: '+82 10-3344-5566',
+        notes: '선물 시뮬레이터 포터블 완제 가동 등급.',
+      },
+    ];
+  };
+
+  // 5. Subscribers State
+  const [subscribers, setSubscribers] = useState<Subscriber[]>(() => {
+    const saved = localStorage.getItem('FUTUA_SIMULA_SUBSCRIBERS');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // ignore
+      }
+    }
+    return getSubscribersSeeds();
+  });
+
+  // 6. Toast notifications
   const [toast, setToast] = useState<{
     show: boolean;
     type: 'success' | 'error' | 'info';
@@ -89,7 +172,7 @@ export default function App() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [isSimulatingRenewal, setIsSimulatingRenewal] = useState(false);
 
-  // Synchronize state changes with persistent memory
+  // Synchronize state changes with localStorage
   useEffect(() => {
     localStorage.setItem('FUTUA_SIMULA_WALLET', JSON.stringify(wallet));
   }, [wallet]);
@@ -102,11 +185,15 @@ export default function App() {
     localStorage.setItem('FUTUA_SIMULA_TXS', JSON.stringify(transactions));
   }, [transactions]);
 
+  useEffect(() => {
+    localStorage.setItem('FUTUA_SIMULA_SUBSCRIBERS', JSON.stringify(subscribers));
+  }, [subscribers]);
+
   const triggerToast = (type: 'success' | 'error' | 'info', message: string) => {
     setToast({ show: true, type, message });
     setTimeout(() => {
       setToast((prev) => ({ ...prev, show: false }));
-    }, 4000);
+    }, 4500);
   };
 
   const handleConnectWallet = () => {
@@ -124,7 +211,21 @@ export default function App() {
       network: 'BSC_TESTNET',
     });
 
-    triggerToast('success', '가상 BSC 메타마스크 지갑이 연결되었습니다. (테스트용 자금 40.0 USDT 지급됨)');
+    // Automatically check if this wallet address belongs to an existing subscriber and synchronize subscription state
+    const match = subscribers.find(s => s.walletAddress && s.walletAddress.toLowerCase() === randAddress.toLowerCase());
+    if (match && match.status === 'ACTIVE') {
+      setSubscription({
+        planId: match.planId,
+        activatedAt: match.activatedAt,
+        expiresAt: match.expiresAt,
+        status: 'ACTIVE',
+        dbSynced: true,
+        lastSyncTime: new Date().toLocaleString()
+      });
+      triggerToast('success', `가상 BSC 지갑이 연동되었습니다! 동기화된 VIP 구독이 감지되어 라이선스가 적용됩니다.`);
+    } else {
+      triggerToast('success', '가상 BSC 메타마스크 지갑이 연결되었습니다. (테스트용 자금 40.0 USDT 지급됨)');
+    }
   };
 
   const handleDisconnectWallet = () => {
@@ -194,7 +295,13 @@ export default function App() {
     }, 1000);
   };
 
-  const handleSubscribe = (planId: SubscriptionDuration, txHash: string, userBnbGasSpent: number) => {
+  // Synchronised Subscriber Registration on transaction complete
+  const handleSubscribe = (
+    planId: SubscriptionDuration, 
+    txHash: string, 
+    userBnbGasSpent: number,
+    registrant?: { name: string; email: string; phoneNumber?: string }
+  ) => {
     const matchedPlan = SUBSCRIPTION_PLANS.find((p) => p.id === planId);
     if (!matchedPlan) return;
 
@@ -219,6 +326,37 @@ export default function App() {
     };
 
     setSubscription(nextSub);
+
+    // Automatic registration to subscribers list
+    const registrantName = registrant?.name || 'Savrina User';
+    const registrantEmail = registrant?.email || 'savrina25x@gmail.com';
+    const registrantPhone = registrant?.phoneNumber || '';
+
+    setSubscribers((prev) => {
+      const existsIndex = prev.findIndex((s) => s.email.toLowerCase() === registrantEmail.toLowerCase() || (s.walletAddress && wallet.address && s.walletAddress.toLowerCase() === wallet.address.toLowerCase()));
+      
+      const newSubscriber: Subscriber = {
+        id: existsIndex !== -1 ? prev[existsIndex].id : `SUB-${Math.floor(Math.random() * 90000) + 10000}`,
+        name: registrantName,
+        email: registrantEmail,
+        planId,
+        activatedAt: activated.toISOString(),
+        expiresAt: expiry.toISOString(),
+        status: 'ACTIVE',
+        walletAddress: wallet.address,
+        phoneNumber: registrantPhone || prev[existsIndex]?.phoneNumber || '',
+        notes: `BSC BEP-20 USDT 결제 완료 신규 승인. TX: ${txHash.substring(0, 10)}...`,
+      };
+
+      if (existsIndex !== -1) {
+        const next = [...prev];
+        next[existsIndex] = newSubscriber;
+        return next;
+      } else {
+        return [newSubscriber, ...prev];
+      }
+    });
+
     triggerToast('success', `${matchedPlan.name} 가입이 승인되었습니다. Netlify DB 원장에 기록 완료!`);
   };
 
@@ -252,6 +390,22 @@ export default function App() {
       lastSyncTime: new Date().toLocaleString(),
     };
     setSubscription(nextSub);
+
+    // Also update this subscriber record's status in subscriber database!
+    setSubscribers((prev) => 
+      prev.map((s) => {
+        if (s.email === 'savrina25x@gmail.com' || (s.walletAddress && wallet.address && s.walletAddress.toLowerCase() === wallet.address.toLowerCase())) {
+          return {
+            ...s,
+            planId: 'FREE',
+            status: 'NONE',
+            notes: '유저 본인 직접 포탈 화면에서 VIP 구독 만료/해지 처리.',
+          };
+        }
+        return s;
+      })
+    );
+
     triggerToast('info', '구독 라이선스가 취소 처리되었으며 Netlify DB에 정보가 동기화 반영되었습니다.');
   };
 
@@ -277,7 +431,7 @@ export default function App() {
         renewalHash += chars.charAt(Math.floor(Math.random() * chars.length));
       }
 
-      handleAddTransaction(renewalHash, `Netlify DB API 호출 (구독 보존상태 확인)`, 0, 'SUCCESS');
+      handleAddTransaction(renewalHash, 'Netlify DB API 호출 (구독 보존상태 확인)', 0, 'SUCCESS');
       setIsSimulatingRenewal(false);
       triggerToast('success', 'Netlify Serverless Database와 결제 검산이 동기화되었습니다.');
     }, 1000);
@@ -293,20 +447,85 @@ export default function App() {
       lastSyncTime: new Date().toLocaleString(),
     };
     setSubscription(nextSub);
+
+    // Update in subscribers database also!
+    setSubscribers((prev) => 
+      prev.map((s) => {
+        if (s.email === 'savrina25x@gmail.com' || (s.walletAddress && wallet.address && s.walletAddress.toLowerCase() === wallet.address.toLowerCase())) {
+          return {
+            ...s,
+            status: 'EXPIRED',
+            notes: '시스템 결제 실패 크론탭 시뮬레이션 영향으로 강제 강등 처리.',
+          };
+        }
+        return s;
+      })
+    );
   };
 
-  const handleDeductUsdt = (amount: number) => {
-    setWallet((prev) => ({
-      ...prev,
-      usdtBalance: parseFloat(Math.max(0, prev.usdtBalance - amount).toFixed(2)),
-    }));
+
+  // ==========================================
+  // SUBSCRIBERS DB ACTION HANDLERS
+  // ==========================================
+  const handleAddSubscriber = (newSub: Omit<Subscriber, 'id'>) => {
+    const subRecord: Subscriber = {
+      id: `SUB-${Math.floor(Math.random() * 90000) + 10000}`,
+      ...newSub
+    };
+
+    setSubscribers(prev => [subRecord, ...prev]);
+
+    // If matches current user's details, update the global active subscription
+    if (newSub.email.toLowerCase() === 'savrina25x@gmail.com' || (wallet.isConnected && newSub.walletAddress && newSub.walletAddress.toLowerCase() === wallet.address?.toLowerCase())) {
+      setSubscription({
+        planId: newSub.planId,
+        activatedAt: newSub.activatedAt,
+        expiresAt: newSub.expiresAt,
+        status: newSub.status === 'ACTIVE' ? 'ACTIVE' : newSub.status === 'EXPIRED' ? 'EXPIRED' : 'NONE',
+        dbSynced: true,
+        lastSyncTime: new Date().toLocaleString()
+      });
+    }
   };
 
-  const handleAddUsdt = (amount: number) => {
-    setWallet((prev) => ({
-      ...prev,
-      usdtBalance: parseFloat((prev.usdtBalance + amount).toFixed(2)),
-    }));
+  const handleUpdateSubscriber = (updatedSub: Subscriber) => {
+    setSubscribers(prev => prev.map(s => s.id === updatedSub.id ? updatedSub : s));
+
+    // If matches current user's details, update the active subscription
+    if (updatedSub.email.toLowerCase() === 'savrina25x@gmail.com' || (wallet.isConnected && updatedSub.walletAddress && updatedSub.walletAddress.toLowerCase() === wallet.address?.toLowerCase())) {
+      setSubscription({
+        planId: updatedSub.planId,
+        activatedAt: updatedSub.activatedAt,
+        expiresAt: updatedSub.expiresAt,
+        status: updatedSub.status === 'ACTIVE' ? 'ACTIVE' : updatedSub.status === 'EXPIRED' ? 'EXPIRED' : 'NONE',
+        dbSynced: true,
+        lastSyncTime: new Date().toLocaleString()
+      });
+    }
+  };
+
+  const handleDeleteSubscriber = (id: string) => {
+    setSubscribers(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleResetSubscribers = () => {
+    if (window.confirm('기존 구독자 데이터베이스를 전부 밀어버리고 초기 시드 팩토리값 대표군들로 완전 재구축하시겠습니까?')) {
+      setSubscribers(getSubscribersSeeds());
+      
+      // Update global active subscription to ACTIVE by referencing first seed if user is matched
+      const defaultUserSeed = getSubscribersSeeds().find(s => s.email === 'savrina25x@gmail.com');
+      if (defaultUserSeed) {
+        setSubscription({
+          planId: defaultUserSeed.planId,
+          activatedAt: defaultUserSeed.activatedAt,
+          expiresAt: defaultUserSeed.expiresAt,
+          status: 'ACTIVE',
+          dbSynced: true,
+          lastSyncTime: new Date().toLocaleString()
+        });
+      }
+      triggerToast('success', '데이터베이스 원장이 최초 테스트용 시드로 다시 점검 정립 완료되었습니다.');
+    }
   };
 
 
@@ -318,6 +537,34 @@ export default function App() {
     pricePerMonth: 0,
     features: ['시뮬레이터 다운로드 가능'],
   };
+
+  // Synchronize Active user subscription state with their Subscriber profile state reactively
+  useEffect(() => {
+    if (!wallet.isConnected) return;
+    
+    // Check if wallet is connected and there's a subscriber matched
+    setSubscribers((prev) => {
+      const matchIndex = prev.findIndex(s => s.email === 'savrina25x@gmail.com' || (s.walletAddress && s.walletAddress.toLowerCase() === wallet.address?.toLowerCase()));
+      if (matchIndex !== -1) {
+        const matchedSub = prev[matchIndex];
+        // If state is out of sync, sync it
+        if (matchedSub.status !== subscription.status || matchedSub.planId !== subscription.planId) {
+          const next = [...prev];
+          next[matchIndex] = {
+            ...matchedSub,
+            planId: subscription.planId,
+            activatedAt: subscription.activatedAt || matchedSub.activatedAt,
+            expiresAt: subscription.expiresAt || matchedSub.expiresAt,
+            status: subscription.status === 'ACTIVE' ? 'ACTIVE' : subscription.status === 'EXPIRED' ? 'EXPIRED' : 'NONE',
+            walletAddress: wallet.address
+          };
+          return next;
+        }
+      }
+      return prev;
+    });
+  }, [subscription, wallet.isConnected]);
+
 
   return (
     <div className="min-h-screen bg-[#070b13] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
@@ -357,60 +604,122 @@ export default function App() {
         </div>
       </header>
 
+      {/* TABS NAVIGATION BAR */}
+      <div className="bg-slate-950/40 border-b border-slate-900 sticky top-[77.5px] z-30 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-1.5 h-12.5 overflow-x-auto">
+          <button
+            id="tab-nav-dashboard"
+            onClick={() => setActiveTab('DASHBOARD')}
+            className={`px-4.5 py-2.5 rounded-lg text-xs font-extrabold flex items-center gap-2 cursor-pointer transition ${
+              activeTab === 'DASHBOARD'
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <CreditCard size={13} />
+            구독 및 스마트 결제 대시보드
+          </button>
+
+          <button
+            id="tab-nav-subscribers"
+            onClick={() => setActiveTab('SUBSCRIBERS')}
+            className={`px-4.5 py-2.5 rounded-lg text-xs font-extrabold flex items-center gap-2 cursor-pointer transition ${
+              activeTab === 'SUBSCRIBERS'
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Users size={13} />
+            구독자 회원 대시보드 (DB 원장 관리)
+          </button>
+
+          <button
+            id="tab-nav-games"
+            onClick={() => setActiveTab('GAMES')}
+            className={`px-4.5 py-2.5 rounded-lg text-xs font-extrabold flex items-center gap-2 cursor-pointer transition ${
+              activeTab === 'GAMES'
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Gamepad2 size={13} />
+            프리미엄 미니게임 센터
+          </button>
+        </div>
+      </div>
+
       {/* CORE FRAME */}
-      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6 relative z-10">
+      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full relative z-10">
         
-        {/* Step 1: Wallet connect and credit Faucet */}
-        <WalletConnect
-          wallet={wallet}
-          onConnect={handleConnectWallet}
-          onDisconnect={handleDisconnectWallet}
-          onNetworkSwitch={handleNetworkSwitch}
-          onClaimFaucet={handleClaimFaucet}
-          isClaiming={isClaiming}
-        />
+        {activeTab === 'DASHBOARD' && (
+          <div className="space-y-6">
+            {/* Step 1: Wallet connect and credit Faucet */}
+            <WalletConnect
+              wallet={wallet}
+              onConnect={handleConnectWallet}
+              onDisconnect={handleDisconnectWallet}
+              onNetworkSwitch={handleNetworkSwitch}
+              onClaimFaucet={handleClaimFaucet}
+              isClaiming={isClaiming}
+            />
 
-        {/* Step 2: Active subscription plan verification and Premium Google Drive Download section */}
-        <SubscriptionStatus
-          subscription={subscription}
-          plan={activePlan}
-          wallet={wallet}
-          onCancelSubscription={handleCancelSubscription}
-          onSimulateRenewal={handleSimulateRenewal}
-          isSimulatingRenewal={isSimulatingRenewal}
-        />
+            {/* Step 2: Active subscription plan verification and Premium Google Drive Download section */}
+            <SubscriptionStatus
+              subscription={subscription}
+              plan={activePlan}
+              wallet={wallet}
+              onCancelSubscription={handleCancelSubscription}
+              onSimulateRenewal={handleSimulateRenewal}
+              isSimulatingRenewal={isSimulatingRenewal}
+            />
 
-        {/* Step 3: Subscription plans selector */}
-        <SubscriptionTiers
-          plans={SUBSCRIPTION_PLANS}
-          activeSubscription={subscription}
-          wallet={wallet}
-          onSubscribe={handleSubscribe}
-          onAddTransaction={handleAddTransaction}
-          onShowConnectToast={() => triggerToast('error', '구독 결제를 완료하기에 앞서 상단의 지갑 연동을 구성해 주십시오.')}
-        />
+            {/* Step 3: Subscription plans selector */}
+            <SubscriptionTiers
+              plans={SUBSCRIPTION_PLANS}
+              activeSubscription={subscription}
+              wallet={wallet}
+              onSubscribe={handleSubscribe}
+              onAddTransaction={handleAddTransaction}
+              onShowConnectToast={() => triggerToast('error', '구독 결제를 완료하기에 앞서 상단의 지갑 연동을 구성해 주십시오.')}
+            />
 
-        {/* Step 4: Subscription Expatriation & Payment Failure Alerts Control Cockpit */}
-        <NotificationManager
-          wallet={wallet}
-          subscription={subscription}
-          activePlan={activePlan}
-          onAddTransaction={handleAddTransaction}
-          triggerToast={triggerToast}
-          onSimulatePaymentFailureStatus={handleSimulatePaymentFailureStatus}
-        />
+            {/* Step 4: Subscription Expatriation & Payment Failure Alerts Control Cockpit */}
+            <NotificationManager
+              wallet={wallet}
+              subscription={subscription}
+              activePlan={activePlan}
+              onAddTransaction={handleAddTransaction}
+              triggerToast={triggerToast}
+              onSimulatePaymentFailureStatus={handleSimulatePaymentFailureStatus}
+            />
 
-        {/* Step 4.5: Blockable Multi-arcade and Game Swap Suite */}
-        <MiniGamesSuite
-          onAddTransaction={handleAddTransaction}
-          usdtBalance={wallet.usdtBalance}
-          onDeductUsdt={handleDeductUsdt}
-          onAddUsdt={handleAddUsdt}
-          triggerToast={triggerToast}
-        />
+            {/* Step 5: Netlify database synced ledger console */}
+            <TransactionHistory transactions={transactions} />
+          </div>
+        )}
 
-        {/* Step 5: Netlify database synced ledger console */}
-        <TransactionHistory transactions={transactions} />
+        {/* TAB 2: SUBSCRIBER MANAGEMENT DATABASE */}
+        {activeTab === 'SUBSCRIBERS' && (
+          <SubscriberManager
+            subscribers={subscribers}
+            onAddSubscriber={handleAddSubscriber}
+            onUpdateSubscriber={handleUpdateSubscriber}
+            onDeleteSubscriber={handleDeleteSubscriber}
+            onResetSubscribers={handleResetSubscribers}
+            triggerToast={triggerToast}
+          />
+        )}
+
+        {/* TAB 3: MINIGAMES ZONE */}
+        {activeTab === 'GAMES' && (
+          <MiniGameZone
+            wallet={wallet}
+            setWallet={setWallet}
+            subscriptionStatus={subscription.status}
+            onAddTransaction={handleAddTransaction}
+            triggerToast={triggerToast}
+          />
+        )}
 
       </main>
 

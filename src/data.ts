@@ -110,36 +110,42 @@ Futua Simula Web3 Core`,
   },
 };
 
-export const BLOCKED_COUNTRIES: { code: string; nameKO: string; nameEN: string }[] = [
-  { code: 'KR', nameKO: '대한민국', nameEN: 'South Korea' },
-  { code: 'NO', nameKO: '노르웨이', nameEN: 'Norway' },
-  { code: 'IS', nameKO: '아이슬란드', nameEN: 'Iceland' },
-  { code: 'FI', nameKO: '핀란드', nameEN: 'Finland' },
-  { code: 'CN', nameKO: '중국', nameEN: 'China' },
-  { code: 'HK', nameKO: '홍콩', nameEN: 'Hong Kong' },
-  { code: 'MO', nameKO: '마카오', nameEN: 'Macau' },
-  { code: 'CU', nameKO: '쿠바', nameEN: 'Cuba' },
-  { code: 'IR', nameKO: '이란', nameEN: 'Iran' },
-  { code: 'BO', nameKO: '볼리비아', nameEN: 'Bolivia' },
-  { code: 'DK', nameKO: '덴마크', nameEN: 'Denmark' },
-  { code: 'NL', nameKO: '네덜란드', nameEN: 'Netherlands' },
-  { code: 'BE', nameKO: '벨기에', nameEN: 'Belgium' },
-  { code: 'SK', nameKO: '슬로바키아', nameEN: 'Slovakia' },
-  { code: 'KP', nameKO: '북한', nameEN: 'North Korea' },
-  { code: 'SY', nameKO: '시리아', nameEN: 'Syria' },
-  { code: 'RU', nameKO: '러시아', nameEN: 'Russia' },
-  { code: 'UA', nameKO: '우크라이나', nameEN: 'Ukraine' },
-];
+export interface CountryConfig {
+  code: string;
+  name: string;
+  flag: string;
+  isBlocked: boolean;
+}
 
-export const SAFE_COUNTRIES: { code: string; nameKO: string; nameEN: string }[] = [
-  { code: 'US', nameKO: '미국', nameEN: 'United States' },
-  { code: 'JP', nameKO: '일본', nameEN: 'Japan' },
-  { code: 'SG', nameKO: '싱가포르', nameEN: 'Singapore' },
-  { code: 'GB', nameKO: '영국', nameEN: 'United Kingdom' },
-  { code: 'DE', nameKO: '독일', nameEN: 'Germany' },
-  { code: 'FR', nameKO: '프랑스', nameEN: 'France' },
-  { code: 'CA', nameKO: '캐나다', nameEN: 'Canada' },
-  { code: 'AU', nameKO: '호주', nameEN: 'Australia' },
-  { code: 'VN', nameKO: '베트남', nameEN: 'Vietnam' },
+export const ISO_COUNTRIES: CountryConfig[] = [
+  { code: '+82', name: '대한민국 (South Korea)', flag: '🇰🇷', isBlocked: false },
+  { code: '+1', name: '미국/캐나다 (USA/Canada)', flag: '🇺🇸', isBlocked: false },
+  { code: '+81', name: '일본 (Japan)', flag: '🇯🇵', isBlocked: false },
+  { code: '+44', name: '영국 (UK)', flag: '🇬🇧', isBlocked: false },
+  { code: '+65', name: '싱가포르 (Singapore)', flag: '🇸🇬', isBlocked: false },
+  { code: '+84', name: '베트남 (Vietnam)', flag: '🇻🇳', isBlocked: false },
+  { code: '+61', name: '호주 (Australia)', flag: '🇦🇺', isBlocked: false },
+  { code: '+49', name: '독일 (Germany)', flag: '🇩🇪', isBlocked: false },
+  { code: '+33', name: '프랑스 (France)', flag: '🇫🇷', isBlocked: false },
+  { code: '+63', name: '필리핀 (Philippines)', flag: '🇵🇭', isBlocked: false },
+  { code: '+66', name: '태국 (Thailand)', flag: '🇹🇭', isBlocked: false },
+  
+  // Blocked Countries (차단 규제지역)
+  { code: '+53', name: '쿠바 (Cuba)', flag: '🇨🇺', isBlocked: true },
+  { code: '+98', name: '이란 (Iran)', flag: '🇮🇷', isBlocked: true },
+  { code: '+850', name: '북한 (North Korea)', flag: '🇰🇵', isBlocked: true },
+  { code: '+963', name: '시리아 (Syria)', flag: '🇸🇾', isBlocked: true },
+  { code: '+380', name: '우크라이나 (Ukraine)', flag: '🇺🇦', isBlocked: true },
+  { code: '+7', name: '러시아 (Russia)', flag: '🇷🇺', isBlocked: true },
+  { code: '+375', name: '벨라루스 (Belarus)', flag: '🇧🇾', isBlocked: true },
+  { code: '+86', name: '중국 (China)', flag: '🇨🇳', isBlocked: true },
+  { code: '+852', name: '홍콩 (Hong Kong)', flag: '🇭🇰', isBlocked: true },
+  { code: '+853', name: '마카오 (Macau)', flag: '🇲🇴', isBlocked: true },
+  { code: '+58', name: '베네수엘라 (Venezuela)', flag: '🇻🇪', isBlocked: true },
+  { code: '+354', name: '아이슬란드 (Iceland)', flag: '🇮🇸', isBlocked: true },
+  { code: '+47', name: '노르웨이 (Norway)', flag: '🇳🇴', isBlocked: true },
+  { code: '+46', name: '스웨덴 (Sweden)', flag: '🇸🇪', isBlocked: true },
+  { code: '+358', name: '핀란드 (Finland)', flag: '🇫🇮', isBlocked: true },
+  { code: '+45', name: '덴마크 (Denmark)', flag: '🇩🇰', isBlocked: true },
 ];
 

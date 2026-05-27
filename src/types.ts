@@ -64,17 +64,16 @@ export interface NotificationLog {
   dbSynced: boolean;
 }
 
-export interface GeolocationState {
-  ip: string;
-  countryCode: string; // ISO Code (e.g. KR, US, NO)
-  countryName: string;
-  isBlocked: boolean;
-  detectedMethod: 'API' | 'MANUAL_SIMULATION';
-}
-
-export interface BlockedCountry {
-  code: string;
-  nameKO: string;
-  nameEN: string;
+export interface Subscriber {
+  id: string;
+  name: string;
+  email: string;
+  planId: SubscriptionDuration;
+  activatedAt: string;
+  expiresAt: string;
+  status: 'ACTIVE' | 'EXPIRED' | 'NONE';
+  walletAddress: string | null;
+  phoneNumber?: string;
+  notes?: string;
 }
 
