@@ -30,7 +30,8 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
   // Form State
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
-  const [formPlan, setFormPlan] = useState<SubscriptionDuration>('1_MONTH');
+  const [formPlan, setFormPlan] = useState<SubscriptionDuration>('2_MONTHS');
+  const [formSerial, setFormSerial] = useState('');
   const [formStart, setFormStart] = useState('');
   const [formExpiry, setFormExpiry] = useState('');
   const [formStatus, setFormStatus] = useState<'ACTIVE' | 'EXPIRED' | 'NONE'>('ACTIVE');
@@ -70,16 +71,30 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
     setFormExpiry(expiry.toISOString().split('T')[0]);
   };
 
+  const generateRandom15DigitSerial = () => {
+    let result = '';
+    for (let i = 0; i < 15; i++) {
+      if (i === 0) {
+        result += Math.floor(Math.random() * 9) + 1; // first digit non-zero
+      } else {
+        result += Math.floor(Math.random() * 10);
+      }
+    }
+    setFormSerial(result);
+    triggerToast('success', '새로운 15자리 시리얼 번호가 자동 생성되었습니다.');
+  };
+
   const openAddModal = () => {
     const today = new Date().toISOString().split('T')[0];
     setFormName('');
     setFormEmail('');
-    setFormPlan('1_MONTH');
+    setFormPlan('2_MONTHS');
+    setFormSerial('');
     setFormStart(today);
     
-    // Auto calculate expiry
+    // Auto calculate expiry for 2 months
     const expiry = new Date();
-    expiry.setMonth(expiry.getMonth() + 1);
+    expiry.setMonth(expiry.getMonth() + 2);
     setFormExpiry(expiry.toISOString().split('T')[0]);
     
     setFormStatus('ACTIVE');
@@ -95,6 +110,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
     setFormName(sub.name);
     setFormEmail(sub.email);
     setFormPlan(sub.planId);
+    setFormSerial(sub.serialKey || '');
     setFormStart(sub.activatedAt ? sub.activatedAt.split('T')[0] : '');
     setFormExpiry(sub.expiresAt ? sub.expiresAt.split('T')[0] : '');
     setFormStatus(sub.status);
@@ -126,8 +142,22 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formEmail.trim()) {
-      triggerToast('error', 'Name and E-mail Address are required fields.');
+      triggerToast('error', '이름과 이메일 주소는 필수 입력 정보입니다.');
       return;
+    }
+
+    if (formSerial.trim()) {
+      if (formPlan === 'CENSORED_LIFETIME') {
+        if (!/^\d{11}$/.test(formSerial.trim())) {
+          triggerToast('error', '검열판 라이선스의 시리얼 번호는 반드시 11자리의 숫자로 구성되어야 합니다.');
+          return;
+        }
+      } else {
+        if (!/^\d{15}$/.test(formSerial.trim())) {
+          triggerToast('error', '일반 라이선스의 시리얼 번호는 반드시 15자리의 숫자로 구성되어야 합니다.');
+          return;
+        }
+      }
     }
 
     const matchedCountry = ISO_COUNTRIES.find(c => c.code === formCountryCode);
@@ -145,19 +175,34 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
       status: formStatus,
       walletAddress: formAddress.trim() || null,
       phoneNumber: formPhoneLocal.trim() ? `${formCountryCode} ${formPhoneLocal.trim()}` : undefined,
-      notes: formNotes
+      notes: formNotes,
+      serialKey: formSerial.trim() || undefined
     });
 
     setIsAddOpen(false);
-    triggerToast('success', `${formName} has been successfully saved to the core subscription ledger.`);
+    triggerToast('success', `${formName} 회원이 Netlify 데이터베이스에 정상 등록되었습니다.`);
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSub) return;
     if (!formName.trim() || !formEmail.trim()) {
-      triggerToast('error', 'Name and E-mail Address are required fields.');
+      triggerToast('error', '이름과 이메일 주소는 필수 입력 정보입니다.');
       return;
+    }
+
+    if (formSerial.trim()) {
+      if (formPlan === 'CENSORED_LIFETIME') {
+        if (!/^\d{11}$/.test(formSerial.trim())) {
+          triggerToast('error', '검열판 라이선스의 시리얼 번호는 반드시 11자리의 숫자로 구성되어야 합니다.');
+          return;
+        }
+      } else {
+        if (!/^\d{15}$/.test(formSerial.trim())) {
+          triggerToast('error', '일반 라이선스의 시리얼 번호는 반드시 15자리의 숫자로 구성되어야 합니다.');
+          return;
+        }
+      }
     }
 
     const matchedCountry = ISO_COUNTRIES.find(c => c.code === formCountryCode);
@@ -176,11 +221,12 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
       status: formStatus,
       walletAddress: formAddress.trim() || null,
       phoneNumber: formPhoneLocal.trim() ? `${formCountryCode} ${formPhoneLocal.trim()}` : undefined,
-      notes: formNotes
+      notes: formNotes,
+      serialKey: formSerial.trim() || undefined
     });
 
     setEditingSub(null);
-    triggerToast('success', `Subscription record for ${formName} has been updated in the core database ledger.`);
+    triggerToast('success', `${formName} 회원의 데이터베이스 원장이 성공적으로 수정되었습니다.`);
   };
 
   // Filter subscribers list
@@ -190,6 +236,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
       sub.name.toLowerCase().includes(term) ||
       sub.email.toLowerCase().includes(term) ||
       sub.id.toLowerCase().includes(term) ||
+      (sub.serialKey && sub.serialKey.toLowerCase().includes(term)) ||
       (sub.walletAddress && sub.walletAddress.toLowerCase().includes(term));
     
     const matchesStatus = statusFilter === 'ALL' || sub.status === statusFilter;
@@ -325,7 +372,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
       </div>
 
       {/* 6. Subscribers Main Grid / Table */}
-      <div className="overflow-x-auto rounded-xl border border-slate-850 bg-slate-950/20">
+      <div className="overflow-x-auto rounded-xl border border-slate-850 bg-slate-950/20 text-slate-200">
         <table className="w-full text-left border-collapse" id="subscribers-core-table">
           <thead>
             <tr className="border-b border-slate-850 bg-slate-950/60 text-slate-400 text-4xs uppercase tracking-wider font-mono">
@@ -333,6 +380,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
               <th className="py-3">Name / E-mail</th>
               <th className="py-3 text-slate-400">Phone Code</th>
               <th className="py-3">Service Tier</th>
+              <th className="py-3 text-slate-400">Serial Key</th>
               <th className="py-3 font-sans">License Start</th>
               <th className="py-3 font-sans">License Expiry</th>
               <th className="py-3">BSC Wallet Address</th>
@@ -343,7 +391,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
           <tbody>
             {filteredSubscribers.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center py-12 text-slate-500 text-xs leading-relaxed font-sans">
+                <td colSpan={10} className="text-center py-12 text-slate-500 text-xs leading-relaxed font-sans">
                   No matching subscriber records found in the database registry.<br />
                   <span className="text-3xs text-slate-600 font-mono mt-1 inline-block">Query term: "{searchTerm || 'None'}" | Filter: {statusFilter}</span>
                 </td>
@@ -406,6 +454,23 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                       <span className="text-slate-300 font-bold">
                         {planDetails ? planDetails.name.split(' ')[2] || planDetails.name : 'Free Trial'}
                       </span>
+                    </td>
+
+                    <td className="py-3.5">
+                      {sub.serialKey ? (
+                        <span 
+                          onClick={() => {
+                            navigator.clipboard.writeText(sub.serialKey || '');
+                            triggerToast('success', '라이선스 시리얼 번호가 대시보드 클립보드에 복사되었습니다.');
+                          }}
+                          className="px-1.5 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded font-bold font-mono text-[10px] tracking-wider select-all cursor-pointer hover:bg-indigo-500/15 hover:text-white transition"
+                          title="클릭 시 클립보드 복사"
+                        >
+                          {sub.serialKey}
+                        </span>
+                      ) : (
+                        <span className="text-slate-650 font-sans text-3xs italic">발급되지 않음</span>
+                      )}
                     </td>
 
                     <td className="py-3.5 text-slate-400 font-sans">

@@ -10,6 +10,7 @@ interface SubscriptionStatusProps {
   onCancelSubscription: () => void;
   onSimulateRenewal: () => void;
   isSimulatingRenewal: boolean;
+  onActivateSerial: (key: string) => boolean;
 }
 
 export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
@@ -19,8 +20,17 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
   onCancelSubscription,
   onSimulateRenewal,
   isSimulatingRenewal,
+  onActivateSerial,
 }) => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [serialInput, setSerialInput] = useState('');
+
+  const handleActivateBtn = () => {
+    const success = onActivateSerial(serialInput);
+    if (success) {
+      setSerialInput('');
+    }
+  };
 
   const daysRemaining = subscription.expiresAt
     ? Math.max(0, Math.ceil((new Date(subscription.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
@@ -75,12 +85,16 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
                 <div className="flex items-center gap-1.5 py-1 px-3 bg-slate-950 rounded-lg border border-slate-850">
                   <Calendar size={13} className="text-slate-500" />
                   <span className="text-slate-500">라이선스 만료일:</span>
-                  <span className="text-white font-bold">{subscription.expiresAt?.split('T')[0]}</span>
+                  <span className="text-white font-bold">
+                    {plan.id === 'LIFETIME' ? '영구 사용 (무제한 / Permanent)' : subscription.expiresAt?.split('T')[0]}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-1.5 py-1 px-3 bg-slate-950 rounded-lg border border-slate-850">
                   <span className="text-slate-500">남은 잔여 일수:</span>
-                  <span className="text-emerald-400 font-bold">{daysRemaining}일 남음</span>
+                  <span className="text-emerald-400 font-bold">
+                    {plan.id === 'LIFETIME' ? '무제한 (No Expiry)' : `${daysRemaining}일 남음`}
+                  </span>
                 </div>
               </div>
             )}
@@ -169,6 +183,74 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
             </div>
           </div>
         )}
+      </div>
+
+      {/* 1.5 Serial Key Activation Panel */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden" id="serial-key-activation-card">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex-grow space-y-2">
+            <h4 className="text-sm font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wide">
+              <span className="p-1 bg-indigo-500/15 text-indigo-400 rounded-lg">
+                <CheckCircle2 size={16} />
+              </span>
+              <span>라이선스 시리얼 인증 연동 (Activate Numeric License Serial)</span>
+            </h4>
+            <p className="text-slate-400 text-xs leading-relaxed max-w-xl">
+              성공적으로 획득한 후 부여되는 **11자리(검열판) 또는 15자리(일반 요금제) 시리얼 인증 번호**를 입력하여 즉시 터미널 정식 기능을 연동/활성화하십시오. 기한이 만료된 단기 시리얼 키는 자동으로 말소 처리됩니다.
+            </p>
+            {subscription.serialKey && (
+              <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-mono font-bold">
+                <span>현재 연동 시리얼:</span>
+                <span className="text-white tracking-wider font-extrabold">{subscription.serialKey}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="w-full md:w-80 shrink-0 space-y-3">
+            <div className="flex gap-2">
+              <input
+                id="input-serial-key"
+                type="text"
+                maxLength={15}
+                placeholder="시리얼 번호 입력"
+                value={serialInput}
+                onChange={(e) => setSerialInput(e.target.value.replace(/\D/g, '').substring(0, 15))}
+                className="flex-grow bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-white tracking-widest placeholder:tracking-normal placeholder:font-sans placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 text-center font-bold"
+              />
+              <button
+                id="btn-activate-serial"
+                onClick={handleActivateBtn}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl cursor-pointer transition uppercase"
+              >
+                등록
+              </button>
+            </div>
+            
+            {/* Quick-Testing Helper Box */}
+            <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-850 space-y-1.5">
+              <span className="text-slate-500 text-4xs uppercase font-extrabold block">테스트용 시리얼 키 (클록 시 자동 입력)</span>
+              <div className="grid grid-cols-2 gap-1.5 overflow-hidden">
+                {[
+                  { key: '888800002222002', label: '2개월' },
+                  { key: '888800006666006', label: '6개월' },
+                  { key: '888800001212012', label: '12개월' },
+                  { key: '888800009999999', label: '영구사용' },
+                  { key: '77770000777', label: '검열영구(11)' }
+                ].map((tc) => (
+                  <button
+                    key={tc.key}
+                    onClick={() => setSerialInput(tc.key)}
+                    className="py-1 px-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded border border-slate-850 hover:border-slate-700 text-4xs font-mono text-center cursor-pointer transition flex flex-col items-center justify-center"
+                  >
+                    <span className="font-bold text-white leading-none scale-100">{tc.label}</span>
+                    <span className="text-slate-500 scale-90 leading-none mt-0.5">{tc.key}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 2. Primary Futua Simula Download Card */}

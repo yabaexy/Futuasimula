@@ -7,15 +7,15 @@ export const FUTUA_SIMULA_DOWNLOAD_URL = 'https://drive.google.com/file/d/1-Tj8h
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
-    id: '1_MONTH',
-    name: 'Futua Simula 1 Month Subscription',
-    durationMonths: 1,
-    priceTotal: 2,
+    id: '2_MONTHS',
+    name: 'Futua Simula 2 Months Subscription',
+    durationMonths: 2,
+    priceTotal: 4,
     pricePerMonth: 2,
-    priceTotalWyda: 350,
+    priceTotalWyda: 700,
     pricePerMonthWyda: 350,
     features: [
-      'Futua Simula futures simulator 30 days full operation',
+      'Futua Simula futures simulator 60 days full operation',
       'Unlock all trading pairs (BTC/USDT, ETH/USDT, etc.)',
       'Real-time simulated execution execution engine',
       'Secure Netlify Database integration (real-time state backup)',
@@ -52,6 +52,38 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Exclusive benefit of up to 29% cost savings applied',
       'Secure double-encrypted database storage on Netlify DB',
       'Automatic upgrades to future major versions supported'
+    ],
+  },
+  {
+    id: 'LIFETIME',
+    name: 'Futua Simula Permanent Lifetime License',
+    durationMonths: 1200,
+    priceTotal: 39,
+    pricePerMonth: 0,
+    priceTotalWyda: 9000,
+    pricePerMonthWyda: 0,
+    features: [
+      'Futua Simula full permanent lifetime operation (No expiry)',
+      'Unlock all present and future trading pairs permanently',
+      'Ultimate priority support with high-bandwidth simulated execution engine',
+      'Permanent double-encrypted session backup via Netlify DB storage',
+      'Free lifetime automatic software upgrades and major updates'
+    ],
+  },
+  {
+    id: 'CENSORED_LIFETIME',
+    name: 'Futua Simula Censored Edition Permanent Lifetime License',
+    durationMonths: 1200,
+    priceTotal: 7,
+    pricePerMonth: 0,
+    priceTotalWyda: 1600,
+    pricePerMonthWyda: 0,
+    features: [
+      'Futua Simula Censored Edition full permanent operation (No expiry)',
+      '11-digit specialized priority serial code activation',
+      'Optimized lightweight execution engine under local restrictions',
+      'Secure permanent session backup via Netlify DB storage',
+      'Free offline-friendly updates with standard simulated capabilities'
     ],
   },
 ];

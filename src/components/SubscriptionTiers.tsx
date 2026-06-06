@@ -159,7 +159,8 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
           email: registrantEmail,
           phoneNumber: `${registrantCountryCode} ${registrantPhoneLocal}`
         }, paymentToken);
-        onAddTransaction(txHash, `Futua Simula ${checkoutPlan!.durationMonths} Month Subscription (${paymentToken})`, -requiredPrice, 'SUCCESS', paymentToken);
+        const desc = (checkoutPlan!.id === 'LIFETIME' || checkoutPlan!.id === 'CENSORED_LIFETIME') ? 'Permanent Lifetime License' : `${checkoutPlan!.durationMonths} Month Subscription`;
+        onAddTransaction(txHash, `Futua Simula ${desc} (${paymentToken})`, -requiredPrice, 'SUCCESS', paymentToken);
         
         setCheckoutStep('SUCCESS');
         setProgressPercent(100);
@@ -189,7 +190,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
         {plans.map((plan) => {
           const isActive = activeSubscription.planId === plan.id && activeSubscription.status === 'ACTIVE';
 
@@ -214,7 +215,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                 <span className="text-slate-500 text-2xs font-semibold uppercase tracking-wider font-mono">
                   {plan.id.replace('_', ' ')} LBN
                 </span>
-                <h4 className="text-lg font-bold text-white mt-0.5">{plan.name}</h4>
+                <h4 className="text-sm font-bold text-white mt-0.5 min-h-[40px] flex items-center">{plan.name}</h4>
               </div>
 
               <div className="mb-5 bg-slate-900/30 p-3 rounded-xl border border-slate-900/80 space-y-2">
@@ -230,8 +231,17 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                   </div>
                 </div>
                 <div className="text-slate-400 text-4xs text-center border-t border-slate-900/50 pt-1 leading-relaxed">
-                  Contract Duration: {plan.durationMonths} Month(s) <br />
-                  (~{plan.pricePerMonth.toFixed(2)} USDT / ~{Math.round((plan.priceTotalWyda ?? 350) / plan.durationMonths)} WYDA per month)
+                  {(plan.id === 'LIFETIME' || plan.id === 'CENSORED_LIFETIME') ? (
+                    <>
+                      Contract Duration: Permanent (Lifetime) <br />
+                      One-time payment, no recurring charges
+                    </>
+                  ) : (
+                    <>
+                      Contract Duration: {plan.durationMonths} Month(s) <br />
+                      (~{plan.pricePerMonth.toFixed(2)} USDT / ~{Math.round((plan.priceTotalWyda ?? 350) / plan.durationMonths)} WYDA per month)
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -588,6 +598,20 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
                       <span className="text-slate-550">Netlify Sync Status</span>
                       <span className="text-emerald-400 font-bold leading-none">&#10003; Synced (Netlify API)</span>
                     </div>
+
+                    {activeSubscription.serialKey && (
+                      <div className="flex flex-col mt-2 pt-2 border-t border-slate-900 font-mono text-3xs text-center space-y-1">
+                        <span className="text-indigo-400 font-bold uppercase tracking-wider">
+                          발급된 {activeSubscription.serialKey.length}자리 시리얼 라이선스 번호
+                        </span>
+                        <div className="bg-slate-900 p-2 rounded border border-slate-800 flex items-center justify-center">
+                          <span className="text-white font-black tracking-widest text-sm select-all">{activeSubscription.serialKey}</span>
+                        </div>
+                        <span className="text-slate-500 scale-95 leading-normal">
+                          위 시리얼 번호를 나중에도 복사하여 라이선스 연동 탭(Subscription Status)에 등록해 정식 등급을 복제 활성화하실 수 있습니다.
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <button

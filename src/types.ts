@@ -9,7 +9,7 @@ export interface WalletState {
   network: NetworkType;
 }
 
-export type SubscriptionDuration = '1_MONTH' | '6_MONTHS' | '12_MONTHS' | 'FREE';
+export type SubscriptionDuration = '2_MONTHS' | '6_MONTHS' | '12_MONTHS' | 'LIFETIME' | 'CENSORED_LIFETIME' | 'FREE';
 
 export interface SubscriptionPlan {
   id: SubscriptionDuration;
@@ -29,6 +29,7 @@ export interface UserSubscription {
   status: 'ACTIVE' | 'EXPIRED' | 'NONE';
   dbSynced: boolean; // Tracking Netlify DB connection status
   lastSyncTime: string | null;
+  serialKey?: string; // Active 15-digit numeric code
 }
 
 export interface BSCTransaction {
@@ -78,5 +79,16 @@ export interface Subscriber {
   walletAddress: string | null;
   phoneNumber?: string;
   notes?: string;
+  serialKey?: string; // 15-digit numeric serial key
+}
+
+export interface SerialKey {
+  key: string; // 15-digit numeric code
+  planId: SubscriptionDuration;
+  expiresAt: string | null;
+  status: 'ACTIVE' | 'USED' | 'EXPIRED' | 'REVOKED';
+  activatedAt?: string;
+  assignedToEmail?: string;
+  assignedToWallet?: string;
 }
 

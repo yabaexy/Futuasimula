@@ -6,7 +6,7 @@ import { TransactionHistory } from './components/TransactionHistory';
 import { NotificationManager } from './components/NotificationManager';
 import { SubscriberManager } from './components/SubscriberManager';
 import { MiniGameZone } from './components/MiniGameZone';
-import { WalletState, UserSubscription, BSCTransaction, SubscriptionDuration, Subscriber } from './types';
+import { WalletState, UserSubscription, BSCTransaction, SubscriptionDuration, Subscriber, SerialKey } from './types';
 import { SUBSCRIPTION_PLANS, TREASURY_WALLET } from './data';
 import { ShieldAlert, CheckCircle2, XCircle, Zap, Database, CreditCard, Users, Gamepad2 } from 'lucide-react';
 
@@ -89,8 +89,8 @@ export default function App() {
   // 4. Default Seed Generator for Subscribers Database
   const getSubscribersSeeds = (): Subscriber[] => {
     const today = new Date();
-    const oneMonthFromNow = new Date();
-    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+    const twoMonthsFromNow = new Date();
+    twoMonthsFromNow.setMonth(twoMonthsFromNow.getMonth() + 2);
 
     const sixMonthsFromNow = new Date();
     sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
@@ -117,13 +117,13 @@ export default function App() {
         id: 'SUB-10492',
         name: '이진아',
         email: 'jina@futua.io',
-        planId: '1_MONTH',
+        planId: '2_MONTHS',
         activatedAt: today.toISOString(),
-        expiresAt: oneMonthFromNow.toISOString(),
+        expiresAt: twoMonthsFromNow.toISOString(),
         status: 'ACTIVE',
         walletAddress: '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b',
         phoneNumber: '+82 10-9876-5432',
-        notes: 'BSC USDT 1달 자동 결제 스마트 컨트랙트 승인 완료.',
+        notes: 'BSC USDT 2달 자동 결제 스마트 컨트랙트 승인 완료.',
       },
       {
         id: 'SUB-99421',
@@ -176,8 +176,75 @@ export default function App() {
     message: '',
   });
 
+  const triggerToast = (type: 'success' | 'error' | 'info', message: string) => {
+    setToast({ show: true, type, message });
+    setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 4500);
+  };
+
   const [isClaiming, setIsClaiming] = useState(false);
   const [isSimulatingRenewal, setIsSimulatingRenewal] = useState(false);
+
+  // 6. Serial Keys State with seeds
+  const [serialKeys, setSerialKeys] = useState<SerialKey[]>(() => {
+    const saved = localStorage.getItem('FUTUA_SIMULA_SERIAL_KEYS');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // ignore
+      }
+    }
+    
+    const exp2 = new Date();
+    exp2.setMonth(exp2.getMonth() + 2);
+    
+    const exp6 = new Date();
+    exp6.setMonth(exp6.getMonth() + 6);
+    
+    const exp12 = new Date();
+    exp12.setMonth(exp12.getMonth() + 12);
+    
+    return [
+      {
+        key: '888800002222002',
+        planId: '2_MONTHS',
+        expiresAt: exp2.toISOString(),
+        status: 'ACTIVE'
+      },
+      {
+        key: '888800006666006',
+        planId: '6_MONTHS',
+        expiresAt: exp6.toISOString(),
+        status: 'ACTIVE'
+      },
+      {
+        key: '888800001212012',
+        planId: '12_MONTHS',
+        expiresAt: exp12.toISOString(),
+        status: 'ACTIVE'
+      },
+      {
+        key: '888800009999999',
+        planId: 'LIFETIME',
+        expiresAt: null,
+        status: 'ACTIVE'
+      },
+      {
+        key: '77770000777',
+        planId: 'CENSORED_LIFETIME',
+        expiresAt: null,
+        status: 'ACTIVE'
+      },
+      {
+        key: '111111111111111',
+        planId: '2_MONTHS',
+        expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        status: 'EXPIRED'
+      }
+    ];
+  });
 
   // Synchronize state changes with localStorage
   useEffect(() => {
@@ -195,6 +262,52 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('FUTUA_SIMULA_SUBSCRIBERS', JSON.stringify(subscribers));
   }, [subscribers]);
+
+  useEffect(() => {
+    localStorage.setItem('FUTUA_SIMULA_SERIAL_KEYS', JSON.stringify(serialKeys));
+  }, [serialKeys]);
+
+  // Automatic verification and revocation of expired serial keys
+  useEffect(() => {
+    const runExpirationSweep = () => {
+      const currentTime = new Date();
+      let hadChanges = false;
+
+      // 1. Invalidate EXPIRED active serial codes
+      const nextKeys = serialKeys.map(k => {
+        if (k.status === 'ACTIVE' && k.expiresAt && new Date(k.expiresAt) < currentTime) {
+          hadChanges = true;
+          return { ...k, status: 'EXPIRED' as const };
+        }
+        return k;
+      });
+
+      if (hadChanges) {
+        setSerialKeys(nextKeys);
+        triggerToast('info', '일부 라이선스 시리얼 번호가 기한 초과로 말소 처리되었습니다.');
+      }
+
+      // 2. Demote user's active subscription if expired (and not LIFETIME)
+      if (
+        subscription.status === 'ACTIVE' && 
+        subscription.expiresAt && 
+        subscription.planId !== 'LIFETIME' && 
+        new Date(subscription.expiresAt) < currentTime
+      ) {
+        setSubscription(prev => ({
+          ...prev,
+          planId: 'FREE',
+          status: 'NONE',
+          expiresAt: null
+        }));
+        triggerToast('error', '현재 사용 중인 단기 라이선스 기한이 끝났습니다. 라이선스가 만료 처리되었습니다.');
+      }
+    };
+
+    runExpirationSweep();
+    const interval = setInterval(runExpirationSweep, 10000); // Probe every 10 seconds
+    return () => clearInterval(interval);
+  }, [serialKeys, subscription, triggerToast]);
 
   // Real MetaMask Events Synchronization
   useEffect(() => {
@@ -234,12 +347,6 @@ export default function App() {
     }
   }, [wallet.isConnected]);
 
-  const triggerToast = (type: 'success' | 'error' | 'info', message: string) => {
-    setToast({ show: true, type, message });
-    setTimeout(() => {
-      setToast((prev) => ({ ...prev, show: false }));
-    }, 4500);
-  };
 
   const handleConnectWallet = async () => {
     const ethereum = (window as any).ethereum;
@@ -435,6 +542,135 @@ export default function App() {
     }, 1000);
   };
 
+  // Generate unique 15-digit numeric code
+  const generate15DigitSerial = (): string => {
+    let result = '';
+    for (let i = 0; i < 15; i++) {
+      if (i === 0) {
+        result += Math.floor(Math.random() * 9) + 1; // first digit non-zero
+      } else {
+        result += Math.floor(Math.random() * 10);
+      }
+    }
+    return result;
+  };
+
+  // Generate unique 11-digit numeric code for Censored Edition
+  const generate11DigitSerial = (): string => {
+    let result = '';
+    for (let i = 0; i < 11; i++) {
+      if (i === 0) {
+        result += Math.floor(Math.random() * 9) + 1; // first digit non-zero
+      } else {
+        result += Math.floor(Math.random() * 10);
+      }
+    }
+    return result;
+  };
+
+  // Handle serial activation via 11-digit or 15-digit numeric code
+  const handleActivateSerial = (serialCode: string): boolean => {
+    const cleanKey = serialCode.trim();
+    if (!/^\d{11}$|^\d{15}$/.test(cleanKey)) {
+      triggerToast('error', '시리얼 양식이 잘못되었습니다. 11자리(검열판 전용) 또는 15자리(일반 구독판) 수 시리얼 키를 입력하십시오.');
+      return false;
+    }
+
+    const matchedIndex = serialKeys.findIndex(k => k.key === cleanKey);
+    if (matchedIndex === -1) {
+      triggerToast('error', '존재하지 않거나 유효하지 않은 라이선스 키입니다.');
+      return false;
+    }
+
+    const keyDetail = serialKeys[matchedIndex];
+    if (keyDetail.status === 'EXPIRED') {
+      triggerToast('error', '이미 유효기간이 지나 말소(Expired) 처리된 시리얼입니다.');
+      return false;
+    }
+    if (keyDetail.status === 'REVOKED') {
+      triggerToast('error', '회수되어 사용할 수 없는 시리얼 키입니다.');
+      return false;
+    }
+
+    // Enforce that CENSORED_LIFETIME requires 11 digits, and others require 15
+    if (keyDetail.planId === 'CENSORED_LIFETIME') {
+      if (cleanKey.length !== 11) {
+        triggerToast('error', '검열판 전용 라이선스는 반드시 11자리 시리얼 번호여야 합니다.');
+        return false;
+      }
+    } else {
+      if (cleanKey.length !== 15) {
+        triggerToast('error', '일반 구독/영구 라이선스는 반드시 15자리 시리얼 번호여야 합니다.');
+        return false;
+      }
+    }
+
+    const matchedPlan = SUBSCRIPTION_PLANS.find(p => p.id === keyDetail.planId);
+    if (!matchedPlan) {
+      triggerToast('error', '시리얼에 지정된 요금제를 식별할 수 없습니다.');
+      return false;
+    }
+
+    const activated = new Date();
+    const expiry = new Date();
+    expiry.setMonth(expiry.getMonth() + matchedPlan.durationMonths);
+
+    // Mark as USED (or keep track of activation details)
+    setSerialKeys(prev => {
+      const next = [...prev];
+      next[matchedIndex] = {
+        ...next[matchedIndex],
+        status: 'ACTIVE', // Keep active for validity, but set details
+        activatedAt: activated.toISOString(),
+        assignedToWallet: wallet.address || '0xSandboxUser'
+      };
+      return next;
+    });
+
+    const nextSub: UserSubscription = {
+      planId: keyDetail.planId,
+      activatedAt: activated.toISOString(),
+      expiresAt: (keyDetail.planId === 'LIFETIME' || keyDetail.planId === 'CENSORED_LIFETIME') ? null : expiry.toISOString(),
+      status: 'ACTIVE',
+      dbSynced: true,
+      lastSyncTime: new Date().toLocaleString(),
+      serialKey: cleanKey
+    };
+
+    setSubscription(nextSub);
+
+    // Register into subscribers list
+    setSubscribers((prev) => {
+      const registrantEmail = 'serial-activated@futua.io';
+      const existsIndex = prev.findIndex((s) => s.walletAddress && wallet.address && s.walletAddress.toLowerCase() === wallet.address.toLowerCase());
+      
+      const newSubscriber: Subscriber = {
+        id: existsIndex !== -1 ? prev[existsIndex].id : `SUB-${Math.floor(Math.random() * 90000) + 10000}`,
+        name: existsIndex !== -1 ? prev[existsIndex].name : '시리얼 연동 등록 회원',
+        email: existsIndex !== -1 ? prev[existsIndex].email : registrantEmail,
+        planId: keyDetail.planId,
+        activatedAt: activated.toISOString(),
+        expiresAt: (keyDetail.planId === 'LIFETIME' || keyDetail.planId === 'CENSORED_LIFETIME') ? '' : expiry.toISOString(),
+        status: 'ACTIVE',
+        walletAddress: wallet.address,
+        phoneNumber: prev[existsIndex]?.phoneNumber || '',
+        notes: `${keyDetail.planId === 'CENSORED_LIFETIME' ? '11자리 검열판' : '15자리'} 시리얼 키[${cleanKey}] 연동 등록됨.`,
+        serialKey: cleanKey,
+      };
+
+      if (existsIndex !== -1) {
+        const next = [...prev];
+        next[existsIndex] = newSubscriber;
+        return next;
+      } else {
+        return [newSubscriber, ...prev];
+      }
+    });
+
+    triggerToast('success', `🎉 성공: ${matchedPlan.name} 라이선스가 정상 등록 및 활성화되었습니다.`);
+    return true;
+  };
+
   // Synchronised Subscriber Registration on transaction complete
   const handleSubscribe = (
     planId: SubscriptionDuration, 
@@ -461,13 +697,28 @@ export default function App() {
       bnbBalance: parseFloat(Math.max(0, prev.bnbBalance - userBnbGasSpent).toFixed(4)),
     }));
 
+    const serial = planId === 'CENSORED_LIFETIME' ? generate11DigitSerial() : generate15DigitSerial();
+
+    // Store in global serial keys list
+    const nextSerialKey: SerialKey = {
+      key: serial,
+      planId,
+      expiresAt: (planId === 'LIFETIME' || planId === 'CENSORED_LIFETIME') ? null : expiry.toISOString(),
+      status: 'ACTIVE',
+      activatedAt: activated.toISOString(),
+      assignedToEmail: registrant?.email || 'savrina25x@gmail.com',
+      assignedToWallet: wallet.address || undefined
+    };
+    setSerialKeys(prev => [nextSerialKey, ...prev]);
+
     const nextSub: UserSubscription = {
       planId,
       activatedAt: activated.toISOString(),
-      expiresAt: expiry.toISOString(),
+      expiresAt: (planId === 'LIFETIME' || planId === 'CENSORED_LIFETIME') ? null : expiry.toISOString(),
       status: 'ACTIVE',
       dbSynced: true,
       lastSyncTime: new Date().toLocaleString(),
+      serialKey: serial,
     };
 
     setSubscription(nextSub);
@@ -486,11 +737,12 @@ export default function App() {
         email: registrantEmail,
         planId,
         activatedAt: activated.toISOString(),
-        expiresAt: expiry.toISOString(),
+        expiresAt: (planId === 'LIFETIME' || planId === 'CENSORED_LIFETIME') ? '' : expiry.toISOString(),
         status: 'ACTIVE',
         walletAddress: wallet.address,
         phoneNumber: registrantPhone || prev[existsIndex]?.phoneNumber || '',
-        notes: `BSC BEP-20 ${paymentToken} settlement confirmed. TX ID: ${txHash.substring(0, 10)}...`,
+        notes: `BSC BEP-20 ${paymentToken} settlement confirmed. TX ID: ${txHash.substring(0, 10)}... Serial: ${serial}`,
+        serialKey: serial,
       };
 
       if (existsIndex !== -1) {
@@ -502,7 +754,7 @@ export default function App() {
       }
     });
 
-    triggerToast('success', `${matchedPlan.name} enrollment approved! Synced with Netlify core database registry.`);
+    triggerToast('success', `${matchedPlan.name} enrollment approved! Serial: ${serial} issued & Netlify DB synced.`);
   };
 
   const handleAddTransaction = (
@@ -634,7 +886,8 @@ export default function App() {
         expiresAt: newSub.expiresAt,
         status: newSub.status === 'ACTIVE' ? 'ACTIVE' : newSub.status === 'EXPIRED' ? 'EXPIRED' : 'NONE',
         dbSynced: true,
-        lastSyncTime: new Date().toLocaleString()
+        lastSyncTime: new Date().toLocaleString(),
+        serialKey: newSub.serialKey
       });
     }
   };
@@ -650,7 +903,8 @@ export default function App() {
         expiresAt: updatedSub.expiresAt,
         status: updatedSub.status === 'ACTIVE' ? 'ACTIVE' : updatedSub.status === 'EXPIRED' ? 'EXPIRED' : 'NONE',
         dbSynced: true,
-        lastSyncTime: new Date().toLocaleString()
+        lastSyncTime: new Date().toLocaleString(),
+        serialKey: updatedSub.serialKey
       });
     }
   };
@@ -843,6 +1097,7 @@ export default function App() {
               onCancelSubscription={handleCancelSubscription}
               onSimulateRenewal={handleSimulateRenewal}
               isSimulatingRenewal={isSimulatingRenewal}
+              onActivateSerial={handleActivateSerial}
             />
 
             {/* Step 3: Subscription plans selector */}
