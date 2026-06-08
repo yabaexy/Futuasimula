@@ -71,9 +71,11 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
     setFormExpiry(expiry.toISOString().split('T')[0]);
   };
 
-  const generateRandom15DigitSerial = () => {
+  const generateRandomSerial = () => {
+    const isCensored = formPlan === 'CENSORED_LIFETIME';
+    const length = isCensored ? 11 : 15;
     let result = '';
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < length; i++) {
       if (i === 0) {
         result += Math.floor(Math.random() * 9) + 1; // first digit non-zero
       } else {
@@ -81,7 +83,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
       }
     }
     setFormSerial(result);
-    triggerToast('success', '새로운 15자리 시리얼 번호가 자동 생성되었습니다.');
+    triggerToast('success', `새로운 ${length}자리 시리얼 번호가 자동 생성되었습니다.`);
   };
 
   const openAddModal = () => {
@@ -685,6 +687,31 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
                     className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 pl-8 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                   />
                   <Key size={12} className="absolute left-2.5 top-2.5 text-slate-500" />
+                </div>
+              </div>
+
+              {/* Serial Key */}
+              <div className="space-y-1">
+                <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Subscriber License Serial Key ({formPlan === 'CENSORED_LIFETIME' ? '11-digit Censored' : '15-digit Normal'}) - Optional</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-grow">
+                    <input
+                      type="text"
+                      id="subform-serial-input"
+                      value={formSerial}
+                      onChange={(e) => setFormSerial(e.target.value.replace(/\D/g, '').substring(0, 15))}
+                      placeholder={formPlan === 'CENSORED_LIFETIME' ? "e.g. 77770000777" : "e.g. 888800009999999"}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 pl-8 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono tracking-widest font-bold"
+                    />
+                    <Database size={12} className="absolute left-2.5 top-2.5 text-slate-500" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generateRandomSerial}
+                    className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-slate-950 text-xs font-black rounded-lg transition"
+                  >
+                    Generate
+                  </button>
                 </div>
               </div>
 
