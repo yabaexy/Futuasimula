@@ -677,7 +677,8 @@ export default function App() {
     txHash: string, 
     userBnbGasSpent: number,
     registrant?: { name: string; email: string; phoneNumber?: string },
-    paymentToken: 'USDT' | 'WYDA' = 'USDT'
+    paymentToken: 'USDT' | 'WYDA' = 'USDT',
+    sellerWallet?: string
   ) => {
     const matchedPlan = SUBSCRIPTION_PLANS.find((p) => p.id === planId);
     if (!matchedPlan) return;
@@ -762,7 +763,8 @@ export default function App() {
     action: string, 
     amount: number, 
     status: 'SUCCESS' | 'FAILED',
-    tokenSymbol: 'USDT' | 'WYDA' = 'USDT'
+    tokenSymbol: 'USDT' | 'WYDA' = 'USDT',
+    recipientAddress?: string
   ) => {
     if (!wallet.isConnected) return;
 
@@ -772,7 +774,7 @@ export default function App() {
       blockNumber: Math.floor(Math.random() * 600000) + 38200000,
       timestamp: txTime,
       from: wallet.address!,
-      to: TREASURY_WALLET,
+      to: recipientAddress || TREASURY_WALLET,
       value: Math.abs(amount),
       tokenSymbol,
       gasFee: 0.0035,

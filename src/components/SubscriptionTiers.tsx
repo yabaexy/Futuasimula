@@ -12,14 +12,16 @@ interface SubscriptionTiersProps {
     txHash: string, 
     userBnbGasSpent: number, 
     registrant?: { name: string; email: string; phoneNumber?: string },
-    paymentToken?: 'USDT' | 'WYDA'
+    paymentToken?: 'USDT' | 'WYDA',
+    sellerWallet?: string
   ) => void;
   onAddTransaction: (
     hash: string, 
     action: string, 
     amount: number, 
     status: 'SUCCESS' | 'FAILED',
-    tokenSymbol?: 'USDT' | 'WYDA'
+    tokenSymbol?: 'USDT' | 'WYDA',
+    recipientAddress?: string
   ) => void;
   onShowConnectToast: () => void;
 }
@@ -43,6 +45,7 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
   const [registrantEmail, setRegistrantEmail] = useState('savrina25x@gmail.com');
   const [registrantCountryCode, setRegistrantCountryCode] = useState('+82');
   const [registrantPhoneLocal, setRegistrantPhoneLocal] = useState('10-1234-5678');
+  const [selectedSellerWallet, setSelectedSellerWallet] = useState<string>('');
 
   const handleInitiateCheckout = (plan: SubscriptionPlan) => {
     if (!wallet.isConnected) {
@@ -54,6 +57,14 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
       alert('You already have an active subscription for this license.');
       return;
     }
+
+    const sellers = [
+      '0x7A4C0fd9708798a1D7e1Bd27A6C902C9Ba033a75',
+      '0xc60fde84af6f6084518c542348dd56c2a9887b28',
+      '0x9899a1ef2638b14fc7fd935e1af4c51987832c09'
+    ];
+    const chosenSeller = sellers[Math.floor(Math.random() * sellers.length)];
+    setSelectedSellerWallet(chosenSeller);
 
     setCheckoutPlan(plan);
     setCheckoutStep('NETWORK');
@@ -158,9 +169,9 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
           name: registrantName, 
           email: registrantEmail,
           phoneNumber: `${registrantCountryCode} ${registrantPhoneLocal}`
-        }, paymentToken);
+        }, paymentToken, selectedSellerWallet);
         const desc = (checkoutPlan!.id === 'LIFETIME' || checkoutPlan!.id === 'CENSORED_LIFETIME') ? 'Permanent Lifetime License' : `${checkoutPlan!.durationMonths} Month Subscription`;
-        onAddTransaction(txHash, `Futua Simula ${desc} (${paymentToken})`, -requiredPrice, 'SUCCESS', paymentToken);
+        onAddTransaction(txHash, `Futua Simula ${desc} (${paymentToken})`, -requiredPrice, 'SUCCESS', paymentToken, selectedSellerWallet);
         
         setCheckoutStep('SUCCESS');
         setProgressPercent(100);
@@ -351,7 +362,9 @@ export const SubscriptionTiers: React.FC<SubscriptionTiersProps> = ({
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h5 className="text-white text-sm font-bold">{checkoutPlan.name} checkout</h5>
-                  <span className="text-slate-500 text-3xs font-mono">Treasury Wallet: {TREASURY_WALLET.substring(0, 12)}...</span>
+                  <span className="text-slate-500 text-3xs font-mono">
+                    Recipient (Seller): {selectedSellerWallet ? `${selectedSellerWallet.substring(0, 12)}...` : `${TREASURY_WALLET.substring(0, 12)}...`}
+                  </span>
                 </div>
                 <div className="text-right">
                   <span className="text-slate-500 text-3xs block">Checkout Cost</span>
