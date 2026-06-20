@@ -273,18 +273,18 @@ export default function App() {
       const currentTime = new Date();
       let hadChanges = false;
 
-      // 1. Invalidate EXPIRED active serial codes
+      // 1. Invalidate EXPIRED active serial codes and clear logged in devices
       const nextKeys = serialKeys.map(k => {
         if (k.status === 'ACTIVE' && k.expiresAt && new Date(k.expiresAt) < currentTime) {
           hadChanges = true;
-          return { ...k, status: 'EXPIRED' as const };
+          return { ...k, status: 'EXPIRED' as const, devices: [] };
         }
         return k;
       });
 
       if (hadChanges) {
         setSerialKeys(nextKeys);
-        triggerToast('info', '일부 라이선스 시리얼 번호가 기한 초과로 말소 처리되었습니다.');
+        triggerToast('info', '일부 라이선스 시리얼 번호가 기한 초과로 말소(Expired) 및 기기연결 초기화 처리되었습니다.');
       }
 
       // 2. Demote user's active subscription if expired (and not LIFETIME)
@@ -292,15 +292,17 @@ export default function App() {
         subscription.status === 'ACTIVE' && 
         subscription.expiresAt && 
         subscription.planId !== 'LIFETIME' && 
+        subscription.planId !== 'CENSORED_LIFETIME' &&
         new Date(subscription.expiresAt) < currentTime
       ) {
         setSubscription(prev => ({
           ...prev,
           planId: 'FREE',
           status: 'NONE',
-          expiresAt: null
+          expiresAt: null,
+          devices: []
         }));
-        triggerToast('error', '현재 사용 중인 단기 라이선스 기한이 끝났습니다. 라이선스가 만료 처리되었습니다.');
+        triggerToast('error', '현재 사용 중인 단기 라이선스 기한이 끝났습니다. 라이선스가 만료되어 기기 연동이 해제되었습니다.');
       }
     };
 
@@ -568,11 +570,39 @@ export default function App() {
     return result;
   };
 
-  // Handle serial activation via 11-digit or 15-digit numeric code
+  // Find a reusable expired serial key or generate a brand new one
+  const getReusableOrCreateSerial = (planId: SubscriptionDuration): string => {
+    const isCensored = planId === 'CENSORED_LIFETIME';
+    const targetLength = isCensored ? 11 : 16;
+    
+    // Find an expired or revoked key with matching length and planId to recycle
+    const reusable = serialKeys.find(
+      (k) => 
+        k.status === 'EXPIRED' && 
+        k.key.length === targetLength &&
+        k.planId === planId
+    );
+    
+    if (reusable) {
+      return reusable.key;
+    }
+    
+    if (isCensored) {
+      return generate11DigitSerial();
+    } else {
+      let suffix = '0';
+      if (planId === '2_MONTHS') suffix = '1';
+      else if (planId === '6_MONTHS') suffix = '2';
+      else if (planId === '12_MONTHS') suffix = '3';
+      return generate15DigitSerial() + suffix;
+    }
+  };
+
+  // Handle serial activation via 11-digit or 16-digit numeric code
   const handleActivateSerial = (serialCode: string): boolean => {
     const cleanKey = serialCode.trim();
-    if (!/^\d{11}$|^\d{15}$/.test(cleanKey)) {
-      triggerToast('error', '시리얼 양식이 잘못되었습니다. 11자리(검열판 전용) 또는 15자리(일반 구독판) 수 시리얼 키를 입력하십시오.');
+    if (!/^\d{11}$|^\d{16}$/.test(cleanKey)) {
+      triggerToast('error', '시리얼 양식이 잘못되었습니다. 11자리(검열판 전용) 또는 16자리(일반 구독판) 수 시리얼 키를 입력하십시오.');
       return false;
     }
 
@@ -592,15 +622,22 @@ export default function App() {
       return false;
     }
 
-    // Enforce that CENSORED_LIFETIME requires 11 digits, and others require 15
+    // Enforce that CENSORED_LIFETIME requires 11 digits, and others require 16
     if (keyDetail.planId === 'CENSORED_LIFETIME') {
       if (cleanKey.length !== 11) {
         triggerToast('error', '검열판 전용 라이선스는 반드시 11자리 시리얼 번호여야 합니다.');
         return false;
       }
     } else {
-      if (cleanKey.length !== 15) {
-        triggerToast('error', '일반 구독/영구 라이선스는 반드시 15자리 시리얼 번호여야 합니다.');
+      if (cleanKey.length !== 16) {
+        triggerToast('error', '일반 구독/영구 라이선스는 반드시 16자리 시리얼 번호여야 합니다.');
+        return false;
+      }
+      
+      const suffix = cleanKey.slice(-1);
+      const expectedSuffix = keyDetail.planId === 'LIFETIME' ? '0' : keyDetail.planId === '2_MONTHS' ? '1' : keyDetail.planId === '6_MONTHS' ? '2' : '3';
+      if (suffix !== expectedSuffix) {
+        triggerToast('error', `시리얼 불일치: 입력하신 시리얼 끝자리가 이 요금제에 할당된 값(${expectedSuffix})과 다릅니다.`);
         return false;
       }
     }
@@ -622,7 +659,8 @@ export default function App() {
         ...next[matchedIndex],
         status: 'ACTIVE', // Keep active for validity, but set details
         activatedAt: activated.toISOString(),
-        assignedToWallet: wallet.address || '0xSandboxUser'
+        assignedToWallet: wallet.address || '0xSandboxUser',
+        devices: next[matchedIndex].devices || [] // Keep existing or reset
       };
       return next;
     });
@@ -634,7 +672,8 @@ export default function App() {
       status: 'ACTIVE',
       dbSynced: true,
       lastSyncTime: new Date().toLocaleString(),
-      serialKey: cleanKey
+      serialKey: cleanKey,
+      devices: keyDetail.devices || []
     };
 
     setSubscription(nextSub);
@@ -671,6 +710,76 @@ export default function App() {
     return true;
   };
 
+  // Connect a simulated device to the active subscription & serial
+  const handleConnectDevice = (deviceName: string): boolean => {
+    if (subscription.status !== 'ACTIVE') {
+      triggerToast('error', '정식 활성화된 구독 라이선스가 존재하지 않습니다.');
+      return false;
+    }
+
+    const currentDevices = subscription.devices || [];
+    if (currentDevices.length >= 5) {
+      triggerToast('error', '최대 접속 가능 대수(5대)를 초과하였습니다. 기존 등록된 기기를 해제해 주십시오.');
+      return false;
+    }
+
+    const nameClean = deviceName.trim();
+    if (!nameClean) {
+      triggerToast('error', '올바른 기기 이름을 입력하십시오.');
+      return false;
+    }
+
+    if (currentDevices.map(d => d.toLowerCase()).includes(nameClean.toLowerCase())) {
+      triggerToast('error', '이미 동일한 이름의 기기가 등록되어 있습니다.');
+      return false;
+    }
+
+    const updatedDevices = [...currentDevices, nameClean];
+
+    // 1. Update subscription state
+    setSubscription(prev => ({
+      ...prev,
+      devices: updatedDevices
+    }));
+
+    // 2. Also update serial keys store
+    if (subscription.serialKey) {
+      setSerialKeys(prev => prev.map(k => {
+        if (k.key === subscription.serialKey) {
+          return { ...k, devices: updatedDevices };
+        }
+        return k;
+      }));
+    }
+
+    triggerToast('success', `기기 [${nameClean}]가 정식 연동용 세션 채널로 성공적으로 등록되었습니다.`);
+    return true;
+  };
+
+  // Disconnect a simulated device from the active subscription & serial
+  const handleDisconnectDevice = (deviceName: string) => {
+    const currentDevices = subscription.devices || [];
+    const updatedDevices = currentDevices.filter(d => d !== deviceName);
+
+    // 1. Update subscription state
+    setSubscription(prev => ({
+      ...prev,
+      devices: updatedDevices
+    }));
+
+    // 2. Also update serial keys store
+    if (subscription.serialKey) {
+      setSerialKeys(prev => prev.map(k => {
+        if (k.key === subscription.serialKey) {
+          return { ...k, devices: updatedDevices };
+        }
+        return k;
+      }));
+    }
+
+    triggerToast('info', `기기 [${deviceName}]의 연동 접속 세션이 정상 해제되었습니다.`);
+  };
+
   // Synchronised Subscriber Registration on transaction complete
   const handleSubscribe = (
     planId: SubscriptionDuration, 
@@ -698,7 +807,7 @@ export default function App() {
       bnbBalance: parseFloat(Math.max(0, prev.bnbBalance - userBnbGasSpent).toFixed(4)),
     }));
 
-    const serial = planId === 'CENSORED_LIFETIME' ? generate11DigitSerial() : generate15DigitSerial();
+    const serial = getReusableOrCreateSerial(planId);
 
     // Store in global serial keys list
     const nextSerialKey: SerialKey = {
@@ -708,9 +817,19 @@ export default function App() {
       status: 'ACTIVE',
       activatedAt: activated.toISOString(),
       assignedToEmail: registrant?.email || 'savrina25x@gmail.com',
-      assignedToWallet: wallet.address || undefined
+      assignedToWallet: wallet.address || undefined,
+      devices: [] // reset device list on reissue/creation
     };
-    setSerialKeys(prev => [nextSerialKey, ...prev]);
+    
+    setSerialKeys(prev => {
+      const existsIndex = prev.findIndex(k => k.key === serial);
+      if (existsIndex !== -1) {
+        const updated = [...prev];
+        updated[existsIndex] = nextSerialKey;
+        return updated;
+      }
+      return [nextSerialKey, ...prev];
+    });
 
     const nextSub: UserSubscription = {
       planId,
@@ -1100,6 +1219,8 @@ export default function App() {
               onSimulateRenewal={handleSimulateRenewal}
               isSimulatingRenewal={isSimulatingRenewal}
               onActivateSerial={handleActivateSerial}
+              onConnectDevice={handleConnectDevice}
+              onDisconnectDevice={handleDisconnectDevice}
             />
 
             {/* Step 3: Subscription plans selector */}
@@ -1136,6 +1257,7 @@ export default function App() {
             onDeleteSubscriber={handleDeleteSubscriber}
             onResetSubscribers={handleResetSubscribers}
             triggerToast={triggerToast}
+            serialKeys={serialKeys}
           />
         )}
 

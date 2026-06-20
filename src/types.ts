@@ -30,6 +30,7 @@ export interface UserSubscription {
   dbSynced: boolean; // Tracking Netlify DB connection status
   lastSyncTime: string | null;
   serialKey?: string; // Active 15-digit numeric code
+  devices?: string[]; // Logged in device physical identifiers (Max 5)
 }
 
 export interface BSCTransaction {
@@ -90,5 +91,6 @@ export interface SerialKey {
   activatedAt?: string;
   assignedToEmail?: string;
   assignedToWallet?: string;
+  devices?: string[]; // Logged in device physical identifiers (Max 5)
 }
 

@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Calendar, RefreshCw, XCircle, AlertTriangle, Download, Database, CheckCircle2, CloudLightning } from 'lucide-react';
+import { 
+  ShieldCheck, Calendar, RefreshCw, XCircle, AlertTriangle, Download, Database, CheckCircle2, CloudLightning,
+  Monitor, Smartphone, Laptop, Tv, Cpu, Plus, Trash2, Tablet, BadgeCheck
+} from 'lucide-react';
 import { UserSubscription, SubscriptionPlan, WalletState } from '../types';
 import { FUTUA_SIMULA_DOWNLOAD_URL } from '../data';
 
@@ -11,6 +14,8 @@ interface SubscriptionStatusProps {
   onSimulateRenewal: () => void;
   isSimulatingRenewal: boolean;
   onActivateSerial: (key: string) => boolean;
+  onConnectDevice: (name: string) => boolean;
+  onDisconnectDevice: (name: string) => void;
 }
 
 export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
@@ -21,14 +26,25 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
   onSimulateRenewal,
   isSimulatingRenewal,
   onActivateSerial,
+  onConnectDevice,
+  onDisconnectDevice,
 }) => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [serialInput, setSerialInput] = useState('');
+  const [newDeviceInput, setNewDeviceInput] = useState('');
 
   const handleActivateBtn = () => {
     const success = onActivateSerial(serialInput);
     if (success) {
       setSerialInput('');
+    }
+  };
+
+  const handleConnectClick = () => {
+    if (!newDeviceInput.trim()) return;
+    const success = onConnectDevice(newDeviceInput);
+    if (success) {
+      setNewDeviceInput('');
     }
   };
 
@@ -252,6 +268,155 @@ export const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 1.8 Connected Devices Console (Only shown if subscription is ACTIVE) */}
+      {subscription.status === 'ACTIVE' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden animate-fade-in" id="connected-devices-card">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wide">
+                  <span className="p-1 bg-sky-500/15 text-sky-400 rounded-lg">
+                    <Cpu size={16} />
+                  </span>
+                  <span>활성 접속 단말기 제어 허브 (Active Connected Devices Hub)</span>
+                </h4>
+                <p className="text-slate-400 text-xs leading-relaxed max-w-xl">
+                  발급받은 시리얼 라이선스에 동시 연동된 활성 단말기를 모니터링 및 즉시 해제/제한할 수 있습니다. 
+                  <span className="text-sky-450 font-bold ml-1">최대 5대 동시 접속</span>이 실시간 원격 보장됩니다.
+                </p>
+              </div>
+
+              {/* Progress and usage meter */}
+              <div className="shrink-0 bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-850 flex flex-col items-center justify-center min-w-[140px]">
+                <span className="text-4xs text-slate-500 uppercase font-extrabold tracking-wider mb-1">사용중인 채널 슬롯</span>
+                <span className={`text-xl font-black font-mono transition-colors ${(subscription.devices || []).length >= 5 ? 'text-red-400' : 'text-sky-400'}`}>
+                  {(subscription.devices || []).length} <span className="text-slate-500 text-xs">/ 5 Slots</span>
+                </span>
+                
+                {/* Micro progress line */}
+                <div className="w-full bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-300 ${
+                      (subscription.devices || []).length >= 5 ? 'bg-red-500' : (subscription.devices || []).length >= 3 ? 'bg-amber-400' : 'bg-sky-500'
+                    }`}
+                    style={{ width: `${Math.min(100, ((subscription.devices || []).length / 5) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* List of Connected Devices */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {(subscription.devices || []).length === 0 ? (
+                <div className="col-span-full py-8 text-center bg-slate-950/40 rounded-xl border border-dashed border-slate-850 flex flex-col items-center justify-center">
+                  <p className="text-slate-500 text-xs">연동 활성화된 하드웨어 단말기가 존재하지 않습니다.</p>
+                  <p className="text-slate-600 text-3xs mt-1">우측 또는 하단의 간편 시뮬레이터를 이용해 가상의 장비를 즉시 접속 테스트해 보십시오!</p>
+                </div>
+              ) : (
+                (subscription.devices || []).map((device, idx) => {
+                  const dummyFin = `FUTUA-DESKTOP-${(idx + 1) * 3}${device.length * 7}-SHA256`;
+                  return (
+                    <div 
+                      key={device} 
+                      className="bg-slate-950/70 border border-slate-850 hover:border-sky-500/20 rounded-xl p-3.5 flex items-start gap-3 transition relative group"
+                    >
+                      <div className="p-2 bg-slate-900 border border-slate-800 text-sky-400 rounded-lg group-hover:bg-sky-500/5 group-hover:border-sky-500/10 transition">
+                        <Monitor size={16} />
+                      </div>
+                      <div className="flex-grow min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-white truncate">{device}</span>
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                        </div>
+                        <p className="text-4xs text-slate-500 font-mono mt-0.5 truncate">{dummyFin}</p>
+                        <p className="text-4xs text-emerald-450 font-mono mt-0.5">상태: 보존형 세션 동기화 완료</p>
+                      </div>
+
+                      <button
+                        onClick={() => onDisconnectDevice(device)}
+                        title="장치 연결 끊기"
+                        className="p-1 px-1.5 text-red-400 hover:text-white hover:bg-red-500/10 border border-transparent hover:border-red-500/25 rounded-md transition cursor-pointer text-4xs shrink-0 self-center"
+                      >
+                        <Trash2 size={12} className="inline mr-0.5" /> 해제
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Simulator Interactive Panel */}
+            <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-850 space-y-3.5">
+              <div className="flex items-center gap-2">
+                <span className="px-1.5 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 text-4xs font-bold rounded uppercase">
+                  SIMULATOR
+                </span>
+                <span className="text-slate-400 text-xs font-bold">Futua Simula 가상 장비 접속 테스트기</span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-grow">
+                  <input
+                    type="text"
+                    maxLength={30}
+                    placeholder="접속 시뮬레이션할 기기명 입력 (예: Trading-Center-PC)"
+                    value={newDeviceInput}
+                    onChange={(e) => setNewDeviceInput(e.target.value.substring(0, 30))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-sans text-white focus:outline-none focus:border-sky-500 font-bold"
+                  />
+                </div>
+
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={handleConnectClick}
+                    disabled={(subscription.devices || []).length >= 5}
+                    className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-black rounded-xl cursor-pointer transition uppercase disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 shrink-0"
+                  >
+                    <Plus size={13} />
+                    가상 기기 접속 등록
+                  </button>
+                </div>
+              </div>
+
+              {/* Preset Quick Actions */}
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-slate-500 text-4xs uppercase font-extrabold mr-1">간편 프리셋 원클릭 접속:</span>
+                {[
+                  { name: 'Office-Trader-PC', label: '오피스 PC' },
+                  { name: 'Home-Macbook-Pro', label: '맥북 프로' },
+                  { name: 'Samsung-S24-Ultra', label: '갤럭시 S24' },
+                  { name: 'AWS-Backup-Host-01', label: 'AWS 호스트' },
+                  { name: 'iPad-Air-Monitor', label: '아이패드' }
+                ].map((preset) => {
+                  const isRegistered = (subscription.devices || []).includes(preset.name);
+                  return (
+                    <button
+                      key={preset.name}
+                      onClick={() => {
+                        if (isRegistered) {
+                          onDisconnectDevice(preset.name);
+                        } else {
+                          onConnectDevice(preset.name);
+                        }
+                      }}
+                      className={`px-2 py-1 rounded text-4xs font-mono font-bold border transition cursor-pointer flex items-center gap-1 ${
+                        isRegistered 
+                          ? 'bg-sky-950/40 text-sky-400 border-sky-400/40 hover:bg-sky-950/60' 
+                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-850 hover:border-slate-700'
+                      }`}
+                    >
+                      {isRegistered ? '✓' : '+'} {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. Primary Futua Simula Download Card */}
       <div className="bg-gradient-to-r from-teal-950/20 via-slate-900 to-indigo-950/20 border border-teal-500/20 rounded-2xl p-6 relative overflow-hidden" id="futua-simula-download-card">

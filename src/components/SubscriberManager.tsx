@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, Filter, Edit2, Trash2, CheckCircle2, XCircle, Mail, Key, User, Calendar, Save, RotateCcw, ShieldCheck, Database, Award, DollarSign, Phone } from 'lucide-react';
-import { Subscriber, SubscriptionDuration } from '../types';
+import { Subscriber, SubscriptionDuration, SerialKey } from '../types';
 import { SUBSCRIPTION_PLANS, ISO_COUNTRIES } from '../data';
 
 interface SubscriberManagerProps {
@@ -10,6 +10,7 @@ interface SubscriberManagerProps {
   onDeleteSubscriber: (id: string) => void;
   onResetSubscribers: () => void;
   triggerToast: (type: 'success' | 'error' | 'info', message: string) => void;
+  serialKeys?: SerialKey[];
 }
 
 export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
@@ -19,6 +20,7 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
   onDeleteSubscriber,
   onResetSubscribers,
   triggerToast,
+  serialKeys,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED' | 'NONE'>('ALL');
@@ -73,15 +75,40 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
   const generateRandomSerial = () => {
     const isCensored = formPlan === 'CENSORED_LIFETIME';
-    const length = isCensored ? 11 : 15;
+    const length = isCensored ? 11 : 16;
+    
+    // Check if there is a reusable expired serial key in the system
+    const reusable = serialKeys?.find(
+      (k) => 
+        k.status === 'EXPIRED' && 
+        k.key.length === length && 
+        k.planId === formPlan
+    );
+
+    if (reusable) {
+      setFormSerial(reusable.key);
+      triggerToast('success', `만료 상태인 기존 ${length}자리 시리얼 번호(${reusable.key})를 재사용(Recycled) 발급하였습니다.`);
+      return;
+    }
+
     let result = '';
-    for (let i = 0; i < length; i++) {
+    const randomLength = isCensored ? 11 : 15;
+    for (let i = 0; i < randomLength; i++) {
       if (i === 0) {
         result += Math.floor(Math.random() * 9) + 1; // first digit non-zero
       } else {
         result += Math.floor(Math.random() * 10);
       }
     }
+    
+    if (!isCensored) {
+      let suffix = '0';
+      if (formPlan === '2_MONTHS') suffix = '1';
+      else if (formPlan === '6_MONTHS') suffix = '2';
+      else if (formPlan === '12_MONTHS') suffix = '3';
+      result += suffix;
+    }
+
     setFormSerial(result);
     triggerToast('success', `새로운 ${length}자리 시리얼 번호가 자동 생성되었습니다.`);
   };
@@ -155,8 +182,14 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
           return;
         }
       } else {
-        if (!/^\d{15}$/.test(formSerial.trim())) {
-          triggerToast('error', '일반 라이선스의 시리얼 번호는 반드시 15자리의 숫자로 구성되어야 합니다.');
+        if (!/^\d{16}$/.test(formSerial.trim())) {
+          triggerToast('error', '일반 라이선스의 시리얼 번호는 반드시 16자리의 숫자로 구성되어야 합니다.');
+          return;
+        }
+        const suffix = formSerial.trim().slice(-1);
+        const expectedSuffix = formPlan === 'LIFETIME' ? '0' : formPlan === '2_MONTHS' ? '1' : formPlan === '6_MONTHS' ? '2' : '3';
+        if (suffix !== expectedSuffix) {
+          triggerToast('error', `시리얼 전송 규격 오류: 현재 선택된 요금제의 끝자리는 반드시 '${expectedSuffix}'여야 합니다.`);
           return;
         }
       }
@@ -200,8 +233,14 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
           return;
         }
       } else {
-        if (!/^\d{15}$/.test(formSerial.trim())) {
-          triggerToast('error', '일반 라이선스의 시리얼 번호는 반드시 15자리의 숫자로 구성되어야 합니다.');
+        if (!/^\d{16}$/.test(formSerial.trim())) {
+          triggerToast('error', '일반 라이선스의 시리얼 번호는 반드시 16자리의 숫자로 구성되어야 합니다.');
+          return;
+        }
+        const suffix = formSerial.trim().slice(-1);
+        const expectedSuffix = formPlan === 'LIFETIME' ? '0' : formPlan === '2_MONTHS' ? '1' : formPlan === '6_MONTHS' ? '2' : '3';
+        if (suffix !== expectedSuffix) {
+          triggerToast('error', `시리얼 전송 규격 오류: 현재 선택된 요금제의 끝자리는 반드시 '${expectedSuffix}'여야 합니다.`);
           return;
         }
       }
@@ -692,15 +731,15 @@ export const SubscriberManager: React.FC<SubscriberManagerProps> = ({
 
               {/* Serial Key */}
               <div className="space-y-1">
-                <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Subscriber License Serial Key ({formPlan === 'CENSORED_LIFETIME' ? '11-digit Censored' : '15-digit Normal'}) - Optional</label>
+                <label className="text-slate-500 text-4xs uppercase tracking-wider font-extrabold block">Subscriber License Serial Key ({formPlan === 'CENSORED_LIFETIME' ? '11-digit Censored' : '16-digit Normal'}) - Optional</label>
                 <div className="flex gap-2">
                   <div className="relative flex-grow">
                     <input
                       type="text"
                       id="subform-serial-input"
                       value={formSerial}
-                      onChange={(e) => setFormSerial(e.target.value.replace(/\D/g, '').substring(0, 15))}
-                      placeholder={formPlan === 'CENSORED_LIFETIME' ? "e.g. 77770000777" : "e.g. 888800009999999"}
+                      onChange={(e) => setFormSerial(e.target.value.replace(/\D/g, '').substring(0, formPlan === 'CENSORED_LIFETIME' ? 11 : 16))}
+                      placeholder={formPlan === 'CENSORED_LIFETIME' ? "e.g. 77770000777" : "e.g. 8888000099999991"}
                       className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 pl-8 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono tracking-widest font-bold"
                     />
                     <Database size={12} className="absolute left-2.5 top-2.5 text-slate-500" />
